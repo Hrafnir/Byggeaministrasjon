@@ -1,0 +1,216 @@
+// === 2: USER AND ROLE DATA START ===
+{
+  // === 2.1: ROLES START ===
+  "roles": [
+    {
+      "RolleID": "ROLLE-BH",
+      "RolleNavn": "Byggherre"
+    },
+    {
+      "RolleID": "ROLLE-PL",
+      "RolleNavn": "Prosjektleder",
+      "IsAdmin": true // Indikerer at denne rollen har admin-rettigheter i PoC
+    },
+    {
+      "RolleID": "ROLLE-ARK",
+      "RolleNavn": "Arkitekt/Rådgivere"
+    },
+    {
+      "RolleID": "ROLLE-AS",
+      "RolleNavn": "Ansvarlig Søker"
+    },
+    {
+      "RolleID": "ROLLE-GR",
+      "RolleNavn": "Grunnarbeider"
+    },
+    {
+      "RolleID": "ROLLE-LM",
+      "RolleNavn": "Landmåler"
+    },
+    {
+      "RolleID": "ROLLE-RR",
+      "RolleNavn": "Rørlegger"
+    },
+    {
+      "RolleID": "ROLLE-EL",
+      "RolleNavn": "Elektriker"
+    },
+    {
+      "RolleID": "ROLLE-BM",
+      "RolleNavn": "Betong-/Murarbeider"
+    },
+    {
+      "RolleID": "ROLLE-SM",
+      "RolleNavn": "Stålmontør" // Inkluderer Stålmontør/Betongmontør/Tømrer for råbygg
+    },
+    {
+      "RolleID": "ROLLE-TT",
+      "RolleNavn": "Taktekker"
+    },
+    {
+      "RolleID": "ROLLE-TF", // Tømrer/Fasade
+      "RolleNavn": "Tømrer/Fasademontør"
+    },
+    {
+      "RolleID": "ROLLE-VM",
+      "RolleNavn": "Vindusmontør" // Ofte Tømrer, men kan spesifiseres
+    },
+    {
+      "RolleID": "ROLLE-TR", // Tømrer/Innredning
+      "RolleNavn": "Tømrer/Innredningsmontør"
+    },
+    {
+      "RolleID": "ROLLE-BR",
+      "RolleNavn": "Brannsikringsmontør"
+    },
+    {
+      "RolleID": "ROLLE-MA",
+      "RolleNavn": "Maler/Sparkler"
+    },
+    {
+      "RolleID": "ROLLE-HM",
+      "RolleNavn": "Himlingsmontør"
+    },
+    {
+      "RolleID": "ROLLE-GL",
+      "RolleNavn": "Gulvlegger/Flislegger"
+    },
+    {
+      "RolleID": "ROLLE-VE",
+      "RolleNavn": "Ventilasjonsmontør"
+    },
+    {
+      "RolleID": "ROLLE-TS", // Tømrer/Snekker (listverk etc)
+      "RolleNavn": "Tømrer/Snekker"
+    },
+    {
+      "RolleID": "ROLLE-MS", // Møbelsnekker/Montør (kjøkken etc)
+      "RolleNavn": "Møbelsnekker/Montør"
+    },
+    {
+      "RolleID": "ROLLE-AG",
+      "RolleNavn": "Anleggsgartner"
+    },
+    {
+      "RolleID": "ROLLE-TEK", // Tekniske fag / Leverandører (testing)
+      "RolleNavn": "Tekniske fag/Leverandører"
+    },
+    {
+      "RolleID": "ROLLE-REN",
+      "RolleNavn": "Renholdsbyrå"
+    },
+    // Kombinerte roller fra oppgavelisten
+    {
+      "RolleID": "Byggherre/Arkitekt",
+      "RolleNavn": "Byggherre/Arkitekt"
+    },
+    {
+       "RolleID": "Byggherre/Prosjektleder",
+       "RolleNavn": "Byggherre/Prosjektleder"
+    },
+    {
+      "RolleID": "Rørlegger/Grunnarbeider/Elektriker",
+      "RolleNavn": "Rørlegger/Grunnarbeider/Elektriker"
+    },
+     {
+      "RolleID": "Stålmontør/Betongmontør/Tømrer",
+      "RolleNavn": "Stålmontør/Betongmontør/Tømrer (Råbygg)"
+     },
+    {
+      "RolleID": "Elektriker/Rørlegger/Ventilasjonsmontør",
+      "RolleNavn": "Elektriker/Rørlegger/Ventilasjonsmontør (Teknisk Fin)"
+    },
+    {
+      "RolleID": "Prosjektleder/Fagansvarlige/Byggherre",
+      "RolleNavn": "Prosjektleder/Fagansvarlige/Byggherre (Sluttbefaring)"
+    }
+  ],
+  // === 2.1: ROLES END ===
+
+  // === 2.2: USERS START ===
+  "users": [
+    {
+      "BrukerID": "USER-001",
+      "Navn": "Ola Byggeleder",
+      "Epost": "ola.byggeleder@byggfirma.no",
+      "Telefon": "91122333",
+      "Firma": "Bygg AS",
+      "RolleIDs": ["ROLLE-PL", "Byggherre/Prosjektleder", "Prosjektleder/Fagansvarlige/Byggherre"] // Kan ha flere roller
+    },
+    {
+      "BrukerID": "USER-002",
+      "Navn": "Kari Tømrer Formann",
+      "Epost": "kari.tomrer@tomrerfirma.no",
+      "Telefon": "92233444",
+      "Firma": "Tømrerfirma AS",
+      "RolleIDs": ["ROLLE-TF", "ROLLE-TR", "ROLLE-TS", "Stålmontør/Betongmontør/Tømrer"] // Dekker flere tømrer-relaterte oppgaver
+    },
+    {
+      "BrukerID": "USER-003",
+      "Navn": "Per Rørlegger Bas",
+      "Epost": "per.rør@rorlegger.no",
+      "Telefon": "93344555",
+      "Firma": "Rørlegger Spesialisten AS",
+      "RolleIDs": ["ROLLE-RR", "Rørlegger/Grunnarbeider/Elektriker", "Elektriker/Rørlegger/Ventilasjonsmontør"]
+    },
+    {
+      "BrukerID": "USER-004",
+      "Navn": "Silje Elektriker Sjef",
+      "Epost": "silje.el@elektropluss.no",
+      "Telefon": "94455666",
+      "Firma": "Elektro Pluss AS",
+      "RolleIDs": ["ROLLE-EL", "Rørlegger/Grunnarbeider/Elektriker", "Elektriker/Rørlegger/Ventilasjonsmontør"]
+    },
+    {
+      "BrukerID": "USER-005",
+      "Navn": "Ahmed Grunnarbeider",
+      "Epost": "ahmed.grunn@graveservice.no",
+      "Telefon": "95566777",
+      "Firma": "Graveservice AS",
+      "RolleIDs": ["ROLLE-GR", "Rørlegger/Grunnarbeider/Elektriker", "ROLLE-AG"] // Dekker også anleggsgartner her for enkelhet
+    },
+    {
+      "BrukerID": "USER-006",
+      "Navn": "Ingrid Arkitekt",
+      "Epost": "ingrid.ark@arkitektkontoret.no",
+      "Telefon": "96677888",
+      "Firma": "Arkitektkontoret AS",
+      "RolleIDs": ["ROLLE-ARK", "Byggherre/Arkitekt"]
+    },
+    {
+      "BrukerID": "USER-007",
+      "Navn": "Bjørn Byggherre",
+      "Epost": "bjorn.bygg@eiendom.no",
+      "Telefon": "97788999",
+      "Firma": "Eiendomsutvikling AS",
+      "RolleIDs": ["ROLLE-BH", "Byggherre/Arkitekt", "Byggherre/Prosjektleder", "Prosjektleder/Fagansvarlige/Byggherre"]
+    },
+     {
+      "BrukerID": "USER-008",
+      "Navn": "Mustafa Maler",
+      "Epost": "mustafa.maler@malermesteren.no",
+      "Telefon": "98899000",
+      "Firma": "Malermesteren AS",
+      "RolleIDs": ["ROLLE-MA"]
+    },
+    {
+      "BrukerID": "USER-009",
+      "Navn": "Frode Betong",
+      "Epost": "frode.betong@betongbygg.no",
+      "Telefon": "90011222",
+      "Firma": "Betongbygg AS",
+      "RolleIDs": ["ROLLE-BM", "Stålmontør/Betongmontør/Tømrer"]
+    },
+     {
+      "BrukerID": "USER-010",
+      "Navn": "Vibeke Ventilasjon",
+      "Epost": "vibeke.vent@luftteknikk.no",
+      "Telefon": "91122334",
+      "Firma": "LuftTeknikk AS",
+      "RolleIDs": ["ROLLE-VE", "Elektriker/Rørlegger/Ventilasjonsmontør"]
+    }
+    // ... Legg til flere brukere for andre roller etter behov ...
+  ]
+  // === 2.2: USERS END ===
+}
+// === 2: USER AND ROLE DATA END ===
