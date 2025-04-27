@@ -1,6 +1,4 @@
-// === 2: USER AND ROLE DATA START ===
 {
-  // === 2.1: ROLES START ===
   "roles": [
     {
       "RolleID": "ROLLE-BH",
@@ -10,7 +8,6 @@
       "RolleID": "ROLLE-PL",
       "RolleNavn": "Prosjektleder",
       "IsAdmin": true
-      // Indikerer at denne rollen har admin-rettigheter i PoC
     },
     {
       "RolleID": "ROLLE-ARK",
@@ -42,22 +39,22 @@
     },
     {
       "RolleID": "ROLLE-SM",
-      "RolleNavn": "Stålmontør" // Inkluderer Stålmontør/Betongmontør/Tømrer for råbygg
+      "RolleNavn": "Stålmontør"
     },
     {
       "RolleID": "ROLLE-TT",
       "RolleNavn": "Taktekker"
     },
     {
-      "RolleID": "ROLLE-TF", // Tømrer/Fasade
+      "RolleID": "ROLLE-TF",
       "RolleNavn": "Tømrer/Fasademontør"
     },
     {
       "RolleID": "ROLLE-VM",
-      "RolleNavn": "Vindusmontør" // Ofte Tømrer, men kan spesifiseres
+      "RolleNavn": "Vindusmontør"
     },
     {
-      "RolleID": "ROLLE-TR", // Tømrer/Innredning
+      "RolleID": "ROLLE-TR",
       "RolleNavn": "Tømrer/Innredningsmontør"
     },
     {
@@ -81,11 +78,11 @@
       "RolleNavn": "Ventilasjonsmontør"
     },
     {
-      "RolleID": "ROLLE-TS", // Tømrer/Snekker (listverk etc)
+      "RolleID": "ROLLE-TS",
       "RolleNavn": "Tømrer/Snekker"
     },
     {
-      "RolleID": "ROLLE-MS", // Møbelsnekker/Montør (kjøkken etc)
+      "RolleID": "ROLLE-MS",
       "RolleNavn": "Møbelsnekker/Montør"
     },
     {
@@ -93,14 +90,13 @@
       "RolleNavn": "Anleggsgartner"
     },
     {
-      "RolleID": "ROLLE-TEK", // Tekniske fag / Leverandører (testing)
+      "RolleID": "ROLLE-TEK",
       "RolleNavn": "Tekniske fag/Leverandører"
     },
     {
       "RolleID": "ROLLE-REN",
       "RolleNavn": "Renholdsbyrå"
     },
-    // Kombinerte roller fra oppgavelisten
     {
       "RolleID": "Byggherre/Arkitekt",
       "RolleNavn": "Byggherre/Arkitekt"
@@ -126,9 +122,6 @@
       "RolleNavn": "Prosjektleder/Fagansvarlige/Byggherre (Sluttbefaring)"
     }
   ],
-  // === 2.1: ROLES END ===
-
-  // === 2.2: USERS START ===
   "users": [
     {
       "BrukerID": "USER-001",
@@ -136,7 +129,7 @@
       "Epost": "ola.byggeleder@byggfirma.no",
       "Telefon": "91122333",
       "Firma": "Bygg AS",
-      "RolleIDs": ["ROLLE-PL", "Byggherre/Prosjektleder", "Prosjektleder/Fagansvarlige/Byggherre"] // Kan ha flere roller
+      "RolleIDs": ["ROLLE-PL", "Byggherre/Prosjektleder", "Prosjektleder/Fagansvarlige/Byggherre"]
     },
     {
       "BrukerID": "USER-002",
@@ -144,7 +137,7 @@
       "Epost": "kari.tomrer@tomrerfirma.no",
       "Telefon": "92233444",
       "Firma": "Tømrerfirma AS",
-      "RolleIDs": ["ROLLE-TF", "ROLLE-TR", "ROLLE-TS", "Stålmontør/Betongmontør/Tømrer"] // Dekker flere tømrer-relaterte oppgaver
+      "RolleIDs": ["ROLLE-TF", "ROLLE-TR", "ROLLE-TS", "Stålmontør/Betongmontør/Tømrer"]
     },
     {
       "BrukerID": "USER-003",
@@ -168,7 +161,7 @@
       "Epost": "ahmed.grunn@graveservice.no",
       "Telefon": "95566777",
       "Firma": "Graveservice AS",
-      "RolleIDs": ["ROLLE-GR", "Rørlegger/Grunnarbeider/Elektriker", "ROLLE-AG"] // Dekker også anleggsgartner her for enkelhet
+      "RolleIDs": ["ROLLE-GR", "Rørlegger/Grunnarbeider/Elektriker", "ROLLE-AG"]
     },
     {
       "BrukerID": "USER-006",
@@ -210,8 +203,5 @@
       "Firma": "LuftTeknikk AS",
       "RolleIDs": ["ROLLE-VE", "Elektriker/Rørlegger/Ventilasjonsmontør"]
     }
-    // ... Legg til flere brukere for andre roller etter behov ...
   ]
-  // === 2.2: USERS END ===
 }
-// === 2: USER AND ROLE DATA END ===
