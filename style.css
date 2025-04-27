@@ -1,0 +1,552 @@
+/* === 4: BASIC STYLES START === */
+
+/* === 4.1: GENERAL STYLES & VARIABLES START === */
+:root {
+    --primary-color: #005f73; /* Mørk blågrønn */
+    --secondary-color: #0a9396; /* Blågrønn */
+    --accent-color: #ee9b00; /* Gyllen/Oransje */
+    --light-color: #ffffff;
+    --dark-color: #333333;
+    --gray-light: #f4f4f4;
+    --gray-medium: #cccccc;
+    --gray-dark: #666666;
+    --status-not-started: #adb5bd; /* Grå */
+    --status-waiting: #ffc107; /* Gyllen */
+    --status-in-progress: #0d6efd; /* Blå */
+    --status-pending-approval: #9d4edd; /* Lilla */
+    --status-completed: #198754; /* Grønn */
+    --status-problem: #dc3545; /* Rød */
+
+    --base-font-size: 16px;
+    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --container-padding: 15px;
+    --border-radius: 5px;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--base-font-size);
+    line-height: 1.6;
+    color: var(--dark-color);
+    margin: 0;
+    padding: 0;
+    background-color: var(--gray-light);
+}
+
+h1, h2, h3 {
+    color: var(--primary-color);
+    margin-bottom: 0.8em;
+}
+
+h1 {
+    font-size: 1.8em;
+}
+
+h2 {
+    font-size: 1.5em;
+    border-bottom: 2px solid var(--secondary-color);
+    padding-bottom: 5px;
+    margin-top: 1.5em; /* Mer luft over H2 */
+}
+h2:first-child {
+    margin-top: 0; /* Første H2 i en view skal ikke ha ekstra top margin */
+}
+
+
+h3 {
+    font-size: 1.2em;
+    color: var(--secondary-color);
+}
+
+a {
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+button {
+    font-family: inherit;
+    font-size: 1em;
+    padding: 8px 15px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    background-color: var(--secondary-color);
+    color: var(--light-color);
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: var(--primary-color);
+}
+
+select, input[type="text"], textarea {
+    font-family: inherit;
+    font-size: 1em;
+    padding: 8px;
+    border: 1px solid var(--gray-medium);
+    border-radius: var(--border-radius);
+    margin-bottom: 10px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: var(--dark-color);
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid var(--gray-light);
+    background-color: #fff;
+     border-radius: var(--border-radius);
+}
+/* === 4.1: GENERAL STYLES & VARIABLES END === */
+
+
+/* === 4.2: HEADER & NAVIGATION START === */
+.app-header {
+    background-color: var(--primary-color);
+    color: var(--light-color);
+    padding: var(--container-padding);
+    display: flex;
+    flex-wrap: wrap; /* Allow items to wrap on smaller screens */
+    align-items: center;
+    justify-content: space-between; /* Space out items */
+}
+
+.app-header h1 {
+    color: var(--light-color);
+    margin: 0;
+    margin-right: 20px; /* Space between title and selector */
+    flex-shrink: 0; /* Prevent title from shrinking too much */
+}
+
+.user-selector {
+    display: flex;
+    align-items: center;
+    margin: 5px 10px 5px 0; /* Spacing */
+    flex-grow: 1; /* Allow selector to take up space */
+    min-width: 200px; /* Ensure it doesn't get too small */
+}
+
+.user-selector label {
+    margin-right: 10px;
+    color: var(--light-color);
+    font-weight: normal;
+}
+
+.user-selector select {
+     flex-grow: 1; /* Allow select to fill space */
+     max-width: 300px; /* Limit max width */
+}
+
+.main-nav {
+    width: 100%; /* Take full width on new line if wrapped */
+    margin-top: 10px; /* Add space if it wraps */
+}
+
+.main-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap */
+}
+
+.main-nav li {
+    margin-right: 5px;
+    margin-bottom: 5px; /* Add space between wrapped buttons */
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.nav-button {
+    background-color: var(--secondary-color);
+    color: var(--light-color);
+    padding: 8px 12px;
+}
+
+.nav-button:hover {
+    background-color: var(--accent-color);
+}
+
+.nav-button.active {
+    background-color: var(--accent-color);
+    font-weight: bold;
+}
+/* === 4.2: HEADER & NAVIGATION END === */
+
+
+/* === 4.3: MAIN CONTENT AREA & VIEWS START === */
+#appContent {
+    padding: var(--container-padding);
+    max-width: 1200px; /* Limit content width */
+    margin: 20px auto; /* Center content */
+}
+
+.view {
+    display: none; /* Hide all views by default */
+    background-color: var(--light-color);
+    padding: var(--container-padding);
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.view.active-view {
+    display: block; /* Show the active view */
+}
+/* === 4.3: MAIN CONTENT AREA & VIEWS END === */
+
+
+/* === 4.4: DASHBOARD SPECIFIC STYLES START === */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsive grid */
+    gap: var(--container-padding);
+}
+
+.card {
+    background-color: #fff;
+    padding: var(--container-padding);
+    border: 1px solid var(--gray-medium);
+    border-radius: var(--border-radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.card h3 {
+    margin-top: 0;
+    border-bottom: 1px solid var(--gray-light);
+    padding-bottom: 5px;
+}
+
+.card ul {
+    max-height: 150px; /* Limit list height */
+    overflow-y: auto; /* Add scroll if needed */
+}
+
+.card li {
+    padding: 5px 0;
+    border: none;
+    background: none;
+    font-size: 0.9em;
+}
+
+.progress-bar-container {
+    background-color: var(--gray-light);
+    border-radius: var(--border-radius);
+    height: 20px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.progress-bar {
+    background-color: var(--status-completed);
+    height: 100%;
+    width: 0%; /* Will be set by JS */
+    transition: width 0.5s ease-in-out;
+    text-align: center;
+    color: white;
+    line-height: 20px; /* Center text vertically */
+    font-size: 0.8em;
+}
+
+#progressPercentage {
+    font-weight: bold;
+}
+
+.view-all-button {
+    background-color: transparent;
+    color: var(--secondary-color);
+    padding: 5px 0;
+    margin-top: 10px;
+    display: block;
+    text-align: left;
+}
+.view-all-button:hover {
+     background-color: transparent;
+    text-decoration: underline;
+}
+/* === 4.4: DASHBOARD SPECIFIC STYLES END === */
+
+
+/* === 4.5: TASK LIST & DETAIL STYLES START === */
+.filter-controls {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: var(--gray-light);
+    border-radius: var(--border-radius);
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.filter-controls label {
+    margin-bottom: 0; /* Remove bottom margin for inline display */
+    margin-right: 5px;
+}
+
+
+/* General Task Item Styling (reused in MyTasks, TaskList) */
+.task-item {
+    border: 1px solid var(--gray-medium);
+    border-left: 5px solid var(--status-not-started); /* Default, overridden by status */
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    background-color: var(--light-color);
+    border-radius: var(--border-radius);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    display: grid; /* Use grid for better layout */
+    grid-template-columns: auto 1fr auto auto; /* Status color | Name/Info | Duration | Actions */
+    gap: 10px;
+    align-items: center;
+}
+
+.task-item h4 {
+    margin: 0;
+    font-size: 1.1em;
+    grid-column: 2 / 3; /* Span Name/Info column */
+}
+
+.task-item .task-meta {
+    font-size: 0.9em;
+    color: var(--gray-dark);
+    grid-column: 2 / 3; /* Span Name/Info column */
+}
+
+.task-item .task-duration {
+    font-size: 0.9em;
+    font-weight: bold;
+    grid-column: 3 / 4; /* Duration column */
+    text-align: right;
+}
+
+.task-item .task-actions {
+    grid-column: 4 / 5; /* Actions column */
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically if needed */
+    gap: 5px;
+    align-items: flex-end;
+}
+
+.task-item .task-actions button {
+    padding: 4px 8px;
+    font-size: 0.85em;
+    min-width: 80px; /* Ensure buttons have some width */
+}
+
+/* Status specific border colors */
+.task-item[data-status="Ikke startet"] { border-left-color: var(--status-not-started); }
+.task-item[data-status="Venter på forutsetning"] { border-left-color: var(--status-waiting); }
+.task-item[data-status="Pågår"] { border-left-color: var(--status-in-progress); }
+.task-item[data-status="Venter på Godkjenning"] { border-left-color: var(--status-pending-approval); }
+.task-item[data-status="Utført"] { border-left-color: var(--status-completed); opacity: 0.7; } /* Fade out completed */
+.task-item[data-status="Problem Rapportert"] { border-left-color: var(--status-problem); }
+
+#taskDetail h2 {
+    margin-bottom: 10px;
+}
+#backToListButton {
+    margin-bottom: 15px;
+    background-color: var(--gray-dark);
+}
+
+#taskDetailContent {
+    padding: 15px;
+    background-color: var(--gray-light);
+    border-radius: var(--border-radius);
+}
+
+#taskDetailContent h3 {
+    margin-top: 1.5em;
+    border-bottom: 1px solid var(--gray-medium);
+    padding-bottom: 3px;
+}
+#taskDetailContent h3:first-of-type {
+    margin-top: 0;
+}
+
+#taskDetailContent ul {
+    margin-bottom: 15px;
+}
+
+#taskDetailContent li {
+    background-color: transparent;
+    border: none;
+    padding-left: 0;
+}
+
+.task-detail-actions button {
+    margin-right: 10px;
+    margin-top: 10px;
+}
+button.problem-button {
+    background-color: var(--status-problem);
+}
+button.problem-button:hover {
+    background-color: #a12731;
+}
+button.approve-button {
+    background-color: var(--status-completed);
+}
+button.approve-button:hover {
+    background-color: #13653f;
+}
+
+/* Style for clickable user/role names in task details */
+.clickable-user {
+    color: var(--secondary-color);
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: bold;
+}
+.clickable-user:hover {
+    color: var(--primary-color);
+}
+/* === 4.5: TASK LIST & DETAIL STYLES END === */
+
+
+/* === 4.6: DEPENDENCIES VIEW START === */
+#dependencies h3 {
+    margin-top: 1.5em;
+}
+#dependencies h3:first-child {
+     margin-top: 0;
+}
+#dependencies li {
+    font-size: 0.95em;
+    padding: 8px;
+    border-bottom: 1px dashed var(--gray-light);
+}
+#dependencies li:last-child {
+    border-bottom: none;
+}
+#dependencies li strong {
+    color: var(--primary-color);
+}
+/* === 4.6: DEPENDENCIES VIEW END === */
+
+
+/* === 4.7: MESSAGES VIEW START === */
+#newMessageModal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 500px;
+    background-color: white;
+    padding: 20px;
+    border: 1px solid var(--gray-medium);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    z-index: 1000; /* Sit on top */
+    border-radius: var(--border-radius);
+}
+
+#newMessageModal h3 {
+    margin-top: 0;
+}
+
+#newMessageModal label {
+    margin-top: 10px;
+}
+
+#newMessageModal textarea {
+    width: 95%; /* Take most of the width */
+    min-height: 80px;
+    resize: vertical; /* Allow vertical resize */
+}
+
+#newMessageModal button {
+    margin-top: 15px;
+    margin-right: 10px;
+}
+#cancelMessageButton {
+    background-color: var(--gray-dark);
+}
+#cancelMessageButton:hover {
+    background-color: var(--dark-color);
+}
+
+/* Basic styling for message list items */
+#messageListContainer li {
+    border-bottom: 1px solid var(--gray-light);
+}
+#messageListContainer li strong { /* Sender/Type */
+    display: block;
+    color: var(--primary-color);
+}
+#messageListContainer li small { /* Timestamp */
+    float: right;
+    color: var(--gray-dark);
+}
+
+/* === 4.7: MESSAGES VIEW END === */
+
+
+/* === 4.8: USERS VIEW START === */
+#userListTable {
+    width: 100%;
+    border-collapse: collapse; /* Remove space between borders */
+    margin-top: 15px;
+}
+
+#userListTable th, #userListTable td {
+    border: 1px solid var(--gray-medium);
+    padding: 10px;
+    text-align: left;
+}
+
+#userListTable th {
+    background-color: var(--gray-light);
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+#userListTable tbody tr:nth-child(even) {
+    background-color: #f9f9f9; /* Zebra striping */
+}
+
+#userListTable tbody tr:hover {
+    background-color: #eaeaea; /* Highlight on hover */
+}
+/* === 4.8: USERS VIEW END === */
+
+/* === 4.9: BACKEND INFO VIEW START === */
+#backendInfo ul, #backendInfo ol {
+    margin-left: 20px;
+    padding-left: 20px;
+}
+#backendInfo ul li, #backendInfo ol li {
+    margin-bottom: 8px;
+    border: none;
+    background: none;
+    padding-left: 0;
+}
+#backendInfo ul {
+     list-style: disc;
+}
+ #backendInfo ol {
+     list-style: decimal;
+}
+#backendInfo strong {
+    color: var(--primary-color);
+}
+
+/* === 4.9: BACKEND INFO VIEW END === */
+
+/* === 4: BASIC STYLES END === */
