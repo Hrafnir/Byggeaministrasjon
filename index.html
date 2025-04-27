@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ByggFlow PoC</title>
+    <!-- // === 3.1: CSS LINK START === -->
+    <link rel="stylesheet" href="style.css">
+    <!-- // === 3.1: CSS LINK END === -->
+</head>
+<body>
+
+    <!-- // === 3.2: GLOBAL HEADER START === -->
+    <header class="app-header">
+        <h1>ByggFlow PoC</h1>
+        <div class="user-selector">
+            <label for="userSelect">Vis som:</label>
+            <select id="userSelect">
+                <!-- Options will be populated by JavaScript -->
+                <option value="">Laster brukere...</option>
+            </select>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><button class="nav-button active" data-target-view="dashboard">Dashboard</button></li>
+                <li><button class="nav-button" data-target-view="taskList">Alle Oppgaver</button></li>
+                <li><button class="nav-button" data-target-view="myTasks">Mine Oppgaver</button></li>
+                <li><button class="nav-button" data-target-view="dependencies">Avhengigheter</button></li>
+                <li><button class="nav-button" data-target-view="messages">Meldinger</button></li>
+                <li><button class="nav-button" data-target-view="users">Brukere</button></li>
+                <li><button class="nav-button" data-target-view="backendInfo">Backend Info</button></li>
+            </ul>
+        </nav>
+    </header>
+    <!-- // === 3.2: GLOBAL HEADER END === -->
+
+    <!-- // === 3.3: MAIN CONTENT AREA START === -->
+    <main id="appContent">
+        <!-- Views will be loaded here by JavaScript -->
+
+        <!-- // === 3.3.1: DASHBOARD VIEW START === -->
+        <div id="dashboard" class="view active-view">
+            <h2>Prosjektoversikt (Dashboard)</h2>
+            <div class="dashboard-grid">
+                <div class="card" id="projectStatusCard">
+                    <h3>Prosjektstatus</h3>
+                    <p>Status: <span id="projectStatus">Laster...</span></p>
+                    <p>Beregnet Slutt: <span id="projectEta">Laster...</span></p>
+                </div>
+                <div class="card" id="projectProgressCard">
+                    <h3>Fremdrift</h3>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                    <p><span id="progressPercentage">0</span>% Fullført</p>
+                    </div>
+                <div class="card" id="activeTasksCard">
+                    <h3>Pågående Arbeid Nå</h3>
+                    <ul id="activeTasksList">
+                        <li>Laster...</li>
+                    </ul>
+                    <button class="view-all-button" data-target-view="taskList">Vis alle oppgaver...</button>
+                </div>
+                <div class="card" id="notificationsCard">
+                    <h3>Siste Hendelser / Varsler</h3>
+                    <ul id="latestNotificationsList">
+                        <li>Laster...</li>
+                        <!-- Simulated notifications will appear here -->
+                    </ul>
+                     <button class="view-all-button" data-target-view="messages">Vis alle meldinger/varsler...</button>
+                </div>
+            </div>
+        </div>
+        <!-- // === 3.3.1: DASHBOARD VIEW END === -->
+
+        <!-- // === 3.3.2: FULL TASK LIST VIEW START === -->
+        <div id="taskList" class="view">
+            <h2>Alle Oppgaver i Prosjektet</h2>
+            <div class="filter-controls">
+                <!-- Filter/Sort options can go here -->
+                <label for="phaseFilter">Filtrer på Fase:</label>
+                <select id="phaseFilter">
+                    <option value="all">Alle Faser</option>
+                    <!-- Options populated by JS -->
+                </select>
+                <label for="statusFilter">Filtrer på Status:</label>
+                <select id="statusFilter">
+                    <option value="all">Alle Statuser</option>
+                    <option value="Ikke startet">Ikke startet</option>
+                    <option value="Venter på forutsetning">Venter på forutsetning</option>
+                    <option value="Pågår">Pågår</option>
+                    <option value="Venter på Godkjenning">Venter på Godkjenning</option>
+                    <option value="Utført">Utført</option>
+                    <option value="Problem Rapportert">Problem Rapportert</option>
+                </select>
+            </div>
+            <div id="fullTaskListContainer">
+                <!-- Task list will be rendered here by JavaScript -->
+                <p>Laster oppgaver...</p>
+            </div>
+        </div>
+        <!-- // === 3.3.2: FULL TASK LIST VIEW END === -->
+
+        <!-- // === 3.3.3: MY TASKS VIEW START === -->
+        <div id="myTasks" class="view">
+            <h2>Mine Tildelte Oppgaver</h2>
+             <div id="myTasksListContainer">
+                <!-- User-specific task list will be rendered here by JavaScript -->
+                 <p>Velg en bruker for å se deres oppgaver.</p>
+            </div>
+        </div>
+        <!-- // === 3.3.3: MY TASKS VIEW END === -->
+
+        <!-- // === 3.3.4: DEPENDENCIES VIEW START === -->
+        <div id="dependencies" class="view">
+            <h2>Avhengighetsoversikt</h2>
+            <div id="waitingForContainer">
+                <h3>Hva jeg venter på:</h3>
+                <ul id="waitingForList">
+                    <li>Velg en bruker for å se avhengigheter.</li>
+                </ul>
+            </div>
+            <div id="waitingOnMeContainer">
+                <h3>Hvem venter på meg:</h3>
+                <ul id="waitingOnMeList">
+                     <li>Velg en bruker for å se avhengigheter.</li>
+                </ul>
+            </div>
+        </div>
+        <!-- // === 3.3.4: DEPENDENCIES VIEW END === -->
+
+        <!-- // === 3.3.5: MESSAGES VIEW START === -->
+        <div id="messages" class="view">
+            <h2>Meldinger & Varsler (Simulert)</h2>
+             <button id="new-message-button">Ny Melding (Simulert)</button>
+             <div id="messageListContainer">
+                 <!-- Message list will appear here -->
+                 <p>Ingen meldinger ennå.</p>
+             </div>
+             <!-- Simple new message modal (hidden by default) -->
+             <div id="newMessageModal" class="modal">
+                 <h3>Send Ny Melding (Simulert)</h3>
+                 <label for="messageRecipient">Til:</label>
+                 <select id="messageRecipient">
+                     <!-- User options populated by JS -->
+                 </select>
+                 <label for="messageSubject">Emne:</label>
+                 <input type="text" id="messageSubject">
+                 <label for="messageBody">Melding:</label>
+                 <textarea id="messageBody"></textarea>
+                 <button id="sendMessageButton">Send</button>
+                 <button id="cancelMessageButton">Avbryt</button>
+             </div>
+        </div>
+        <!-- // === 3.3.5: MESSAGES VIEW END === -->
+
+        <!-- // === 3.3.6: USERS VIEW START === -->
+        <div id="users" class="view">
+            <h2>Prosjektdeltakere</h2>
+            <table id="userListTable">
+                <thead>
+                    <tr>
+                        <th>Navn</th>
+                        <th>Rolle(r)</th>
+                        <th>Firma</th>
+                        <th>Kontakt</th>
+                    </tr>
+                </thead>
+                <tbody id="userListBody">
+                    <!-- User list populated by JS -->
+                    <tr><td colspan="4">Laster brukere...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- // === 3.3.6: USERS VIEW END === -->
+
+        <!-- // === 3.3.7: BACKEND INFO VIEW START === -->
+        <div id="backendInfo" class="view">
+             <h2>Anbefalinger for Fullverdig Versjon</h2>
+             <p>Denne applikasjonen er en <strong>Proof of Concept (PoC)</strong> utviklet for å demonstrere brukergrensesnitt og kjernefunksjonalitet for prosjektstyring og kommunikasjon i byggeprosjekter. Den kjører <strong>utelukkende i din nettleser</strong> (klient-side) og har <strong>ingen backend</strong> (server eller database).</p>
+
+             <h3>Begrensninger i denne PoC-en:</h3>
+             <ul>
+                 <li><strong>Ingen Sanntidsdeling:</strong> Data og statusendringer deles ikke automatisk mellom ulike brukere eller enheter.</li>
+                 <li><strong>Midlertidig Data:</strong> Endringer du gjør (f.eks. oppdatere status, endre varighet) lagres kun midlertidig i nettleserens minne og går tapt når du lukker fanen (med mindre <code>localStorage</code> er brukt for enkel persistens).</li>
+                 <li><strong>Simulert Kommunikasjon:</strong> Meldinger og varsler "sendes" ikke, de vises kun lokalt.</li>
+                 <li><strong>Begrenset Skalerbarhet:</strong> Ytelsen kan påvirkes ved svært store prosjekter, da all data og logikk håndteres i nettleseren.</li>
+             </ul>
+
+             <h3>Anbefalinger for en Fullverdig Versjon:</h3>
+             <ol>
+                 <li><strong>Backend (Server-side Applikasjon):</strong>
+                    <ul>
+                        <li><strong>Hensikt:</strong> Håndtere forretningslogikk, datavalidering, brukerautentisering, og fungere som et sentralt knutepunkt.</li>
+                        <li><strong>Teknologier:</strong> Node.js (JavaScript/TypeScript), Python (Django/Flask), Ruby on Rails, Java (Spring), C# (.NET) er alle gode alternativer.</li>
+                        <li><strong>Funksjoner:</strong> API, sentral beregning av tidsplaner, statusoppdateringer, varselgenerering, brukeradministrasjon.</li>
+                    </ul>
+                 </li>
+                 <li><strong>Database:</strong>
+                    <ul>
+                        <li><strong>Hensikt:</strong> Lagre all data persistent og strukturert.</li>
+                        <li><strong>Typer:</strong> Relasjonsdatabase (SQL) som PostgreSQL/MySQL anbefales ofte. NoSQL (MongoDB etc.) kan vurderes.</li>
+                        <li><strong>Viktig:</strong> Sikrer dataintegritet, tilgjengelighet og persistens.</li>
+                    </ul>
+                 </li>
+                 <li><strong>Frontend (Klient-side Applikasjon):</strong>
+                     <ul>
+                        <li><strong>Hensikt:</strong> Presentere data og tillate interaksjon (som denne PoC-en).</li>
+                        <li><strong>Rammeverk:</strong> React, Vue, Angular forenkler utvikling og kommunikasjon med backend.</li>
+                    </ul>
+                 </li>
+                 <li><strong>Sanntidskommunikasjon (Valgfritt, men anbefalt):</strong>
+                    <ul>
+                        <li><strong>Hensikt:</strong> Pushe oppdateringer til brukere umiddelbart.</li>
+                        <li><strong>Teknologier:</strong> WebSockets (f.eks. Socket.IO), Server-Sent Events (SSE).</li>
+                    </ul>
+                 </li>
+                 <li><strong>Autentisering og Autorisasjon:</strong>
+                    <ul>
+                        <li>Implementere sikre løsninger for innlogging og rettighetsstyring på backend.</li>
+                    </ul>
+                 </li>
+             </ol>
+             <p><strong>Oppsummert:</strong> En fullverdig versjon krever en robust backend og database. Denne PoC-en gir et godt grunnlag for å designe brukergrensesnittet.</p>
+        </div>
+        <!-- // === 3.3.7: BACKEND INFO VIEW END === -->
+
+        <!-- // === 3.3.8: TASK DETAIL VIEW START === -->
+        <!-- This view is dynamically generated or populated by JS when a task is clicked -->
+        <div id="taskDetail" class="view">
+            <h2>Oppgave Detaljer</h2>
+            <button id="backToListButton">Tilbake til listen</button>
+            <div id="taskDetailContent">
+                <!-- Detailed task info will be loaded here by JS -->
+                <p>Velg en oppgave fra listen for å se detaljer.</p>
+            </div>
+        </div>
+        <!-- // === 3.3.8: TASK DETAIL VIEW END === -->
+
+    </main>
+    <!-- // === 3.3: MAIN CONTENT AREA END === -->
+
+    <!-- // === 3.4: JAVASCRIPT LINK START === -->
+    <!-- Main script file -->
+    <script src="app.js"></script>
+    <!-- // === 3.4: JAVASCRIPT LINK END === -->
+
+</body>
+</html>
