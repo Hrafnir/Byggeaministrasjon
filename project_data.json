@@ -1,33 +1,27 @@
-// === 1: PROJECT DATA START ===
 {
-  // === 1.1: PROJECT INFO START ===
   "project": {
     "ProsjektID": "PROSJEKT-KONTOR-001",
     "ProsjektNavn": "Kontorbygg Sentrum",
     "Beskrivelse": "Middels stort kontorbygg prosjekt.",
-    "StartDato": null, // Settes når prosjektet starter i appen
-    "BeregnetSluttDato": null, // Beregnes dynamisk av appen
+    "StartDato": null,
+    "BeregnetSluttDato": null,
     "Status": "Planlegging"
   },
-  // === 1.1: PROJECT INFO END ===
-
-  // === 1.2: TASK LIST START ===
   "tasks": [
-    // --- Fase 0: Planlegging & Tillatelser ---
     {
       "OppgaveID": "TASK-001",
       "OppgaveNr": 1,
       "OppgaveNavn": "Behovsanalyse & Tomtevalg",
       "Beskrivelse": "Definere byggets formål, størrelse og funksjoner. Sikre egnet tomt.",
       "Fase": "0: Planlegging & Tillatelser",
-      "AnsvarligRolleID": "Byggherre/Arkitekt", // Forenklet rolle for PoC
+      "AnsvarligRolleID": "Byggherre/Arkitekt",
       "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [] // Ingen forutsetninger
+      "Forutsetninger": []
     },
     {
       "OppgaveID": "TASK-002",
@@ -35,14 +29,14 @@
       "OppgaveNavn": "Design & Prosjektering",
       "Beskrivelse": "Utvikle arkitekttegninger, tekniske tegninger (struktur, VVS, elektro).",
       "Fase": "0: Planlegging & Tillatelser",
-      "AnsvarligRolleID": "Arkitekt/Rådgivere", // Forenklet rolle for PoC
+      "AnsvarligRolleID": "Arkitekt/Rådgivere",
       "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [1] // Må ha gjort behovsanalyse/tomtevalg
+      "Forutsetninger": [1]
     },
     {
       "OppgaveID": "TASK-003",
@@ -51,13 +45,13 @@
       "Beskrivelse": "Sende inn nødvendige tegninger og dokumentasjon til kommunen.",
       "Fase": "0: Planlegging & Tillatelser",
       "AnsvarligRolleID": "Ansvarlig Søker",
-      "EstimertVarighetDager": null, // Varighet er mer 'ventetid'
+      "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [2] // Krever prosjekteringsgrunnlag
+      "Forutsetninger": [2]
     },
     {
       "OppgaveID": "TASK-004",
@@ -72,7 +66,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [2] // Krever prosjekteringsgrunnlag (kan gå parallelt med 3)
+      "Forutsetninger": [2]
     },
     {
       "OppgaveID": "TASK-005",
@@ -87,7 +81,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [3, 4] // Krever rammetillatelse og kontrakter
+      "Forutsetninger": [3, 4]
     },
     {
       "OppgaveID": "TASK-006",
@@ -96,15 +90,14 @@
       "Beskrivelse": "Sende inn søknad for å få lov til å starte byggearbeidene.",
       "Fase": "0: Planlegging & Tillatelser",
       "AnsvarligRolleID": "Ansvarlig Søker",
-      "EstimertVarighetDager": null, // Varighet er mer 'ventetid'
+      "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [3, 4, 5] // Krever ramme, kontrakter, detaljprosj. påbegynt
+      "Forutsetninger": [3, 4, 5]
     },
-    // --- Fase 1: Tomtearbeid & Fundamentering ---
     {
       "OppgaveID": "TASK-007",
       "OppgaveNr": 7,
@@ -118,7 +111,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [6] // Krever IG
+      "Forutsetninger": [6]
     },
     {
       "OppgaveID": "TASK-008",
@@ -133,7 +126,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [7] // Krever etablert byggeplass
+      "Forutsetninger": [7]
     },
     {
       "OppgaveID": "TASK-009",
@@ -148,7 +141,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [8] // Krever ryddet tomt
+      "Forutsetninger": [8]
     },
     {
       "OppgaveID": "TASK-010",
@@ -163,7 +156,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [9] // Krever utsetting
+      "Forutsetninger": [9]
     },
     {
       "OppgaveID": "TASK-011",
@@ -171,14 +164,14 @@
       "OppgaveNavn": "Bunnledninger (VA, Overvann, Føringsrør)",
       "Beskrivelse": "Legge rør og trekkerør under bakkenivå.",
       "Fase": "1: Tomtearbeid & Fundamentering",
-      "AnsvarligRolleID": "Rørlegger/Grunnarbeider/Elektriker", // Flere involvert
+      "AnsvarligRolleID": "Rørlegger/Grunnarbeider/Elektriker",
       "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [10] // Krever påbegynt/delvis ferdig graving
+      "Forutsetninger": [10]
     },
     {
       "OppgaveID": "TASK-012",
@@ -193,7 +186,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [10, 11] // Krever ferdig graving og bunnledninger under fundament
+      "Forutsetninger": [10, 11]
     },
     {
       "OppgaveID": "TASK-013",
@@ -208,9 +201,8 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [12] // Krever ferdig fundamentering (og herding/membran)
+      "Forutsetninger": [12]
     },
-    // --- Fase 2: Råbygg ---
     {
       "OppgaveID": "TASK-014",
       "OppgaveNr": 14,
@@ -224,7 +216,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [12, 13] // Krever ferdig fundament og tilbakefylling
+      "Forutsetninger": [12, 13]
     },
     {
       "OppgaveID": "TASK-015",
@@ -239,7 +231,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [14] // Krever bærekonstruksjon for etasjen
+      "Forutsetninger": [14]
     },
     {
       "OppgaveID": "TASK-016",
@@ -254,9 +246,8 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [14, 15] // Krever bærekonstruksjon for øverste etasje/dekke
+      "Forutsetninger": [14, 15]
     },
-    // --- Fase 3: Tett Bygg ---
     {
       "OppgaveID": "TASK-017",
       "OppgaveNr": 17,
@@ -270,7 +261,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [16] // Krever ferdig takstruktur
+      "Forutsetninger": [16]
     },
     {
       "OppgaveID": "TASK-018",
@@ -285,7 +276,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [14, 15] // Krever bærekonstruksjon klar for vegger
+      "Forutsetninger": [14, 15]
     },
     {
       "OppgaveID": "TASK-019",
@@ -300,7 +291,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [18] // Krever at åpninger i yttervegg er klare
+      "Forutsetninger": [18]
     },
     {
       "OppgaveID": "TASK-020",
@@ -315,9 +306,8 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [18, 19] // Krever ytterveggstruktur og ofte monterte vinduer/dører
+      "Forutsetninger": [18, 19]
     },
-    // --- Fase 4: Innvendige Tekniske Installasjoner ---
     {
       "OppgaveID": "TASK-021",
       "OppgaveNr": 21,
@@ -331,7 +321,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [17, 19] // Krever tett bygg (tak og vinduer/dører)
+      "Forutsetninger": [17, 19]
     },
     {
       "OppgaveID": "TASK-022",
@@ -346,7 +336,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [21] // Krever at stenderverk er oppe
+      "Forutsetninger": [21]
     },
     {
       "OppgaveID": "TASK-023",
@@ -361,7 +351,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [21] // Krever at stenderverk er oppe
+      "Forutsetninger": [21]
     },
     {
       "OppgaveID": "TASK-024",
@@ -376,7 +366,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [21] // Krever at stenderverk/struktur er klar for kanaler
+      "Forutsetninger": [21]
     },
     {
       "OppgaveID": "TASK-025",
@@ -384,16 +374,15 @@
       "OppgaveNavn": "Brannsikring (Tetninger, Isolasjon)",
       "Beskrivelse": "Tette gjennomføringer mellom brannceller.",
       "Fase": "4: Innvendige Tekniske Installasjoner",
-      "AnsvarligRolleID": "Brannsikringsmontør", // Kan utføres av andre fag også
+      "AnsvarligRolleID": "Brannsikringsmontør",
       "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [22, 23, 24] // Krever at tekniske føringer er på plass
+      "Forutsetninger": [22, 23, 24]
     },
-    // --- Fase 5: Innvendig Ferdigstillelse ---
     {
       "OppgaveID": "TASK-026",
       "OppgaveNr": 26,
@@ -407,7 +396,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [22, 23, 24, 25] // Krever at tekniske føringer (grov) er ferdig inspisert/tettet
+      "Forutsetninger": [22, 23, 24, 25]
     },
     {
       "OppgaveID": "TASK-027",
@@ -422,7 +411,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [26] // Krever at isolasjon er på plass
+      "Forutsetninger": [26]
     },
     {
       "OppgaveID": "TASK-028",
@@ -437,7 +426,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [27] // Krever at kledning er montert
+      "Forutsetninger": [27]
     },
     {
       "OppgaveID": "TASK-029",
@@ -452,7 +441,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [24, 28] // Krever teknisk over himling ferdig, og sparkling/maling av vegger over himling
+      "Forutsetninger": [24, 28]
     },
     {
       "OppgaveID": "TASK-030",
@@ -467,7 +456,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [28] // Krever ferdig sparklet og slipt
+      "Forutsetninger": [28]
     },
     {
       "OppgaveID": "TASK-031",
@@ -482,7 +471,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [30] // Krever vanligvis ferdig malte vegger/tak
+      "Forutsetninger": [30]
     },
     {
       "OppgaveID": "TASK-032",
@@ -497,7 +486,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [29, 30, 31] // Krever ferdige overflater (tak, vegg, gulv) der utstyr skal monteres
+      "Forutsetninger": [29, 30, 31]
     },
     {
       "OppgaveID": "TASK-033",
@@ -512,7 +501,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [31] // Krever ferdig gulv
+      "Forutsetninger": [31]
     },
     {
       "OppgaveID": "TASK-034",
@@ -520,16 +509,15 @@
       "OppgaveNavn": "Montering Kjøkken/Innredning/Garderobe",
       "Beskrivelse": "Installere faste innredninger.",
       "Fase": "5: Innvendig Ferdigstillelse",
-      "AnsvarligRolleID": "Møbelsnekker/Tømrer/Montør",
+      "AnsvarligRolleID": "Møbelsnekker/Montør",
       "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [31, 32] // Krever ferdige overflater og klart for tilkobling av teknisk utstyr
+      "Forutsetninger": [31, 32]
     },
-    // --- Fase 6: Utomhusarbeider & Ferdigstillelse ---
     {
       "OppgaveID": "TASK-035",
       "OppgaveNr": 35,
@@ -543,7 +531,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [20] // Krever at bygget er utvendig ferdig / stillas fjernet
+      "Forutsetninger": [20]
     },
     {
       "OppgaveID": "TASK-036",
@@ -558,7 +546,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [35] // Krever ferdig terrengarbeid
+      "Forutsetninger": [35]
     },
     {
       "OppgaveID": "TASK-037",
@@ -573,7 +561,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [32, 34] // Krever at alt utstyr er montert og tilkoblet
+      "Forutsetninger": [32, 34]
     },
     {
       "OppgaveID": "TASK-038",
@@ -588,7 +576,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [33, 34, 37] // Krever at de fleste innvendige arbeider og testing er ferdig
+      "Forutsetninger": [33, 34, 37]
     },
     {
       "OppgaveID": "TASK-039",
@@ -603,7 +591,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [38] // Krever rengjort bygg
+      "Forutsetninger": [38]
     },
     {
       "OppgaveID": "TASK-040",
@@ -612,13 +600,13 @@
       "Beskrivelse": "Sende inn dokumentasjon til kommunen for å få ta bygget i bruk.",
       "Fase": "6: Utomhusarbeider & Ferdigstillelse",
       "AnsvarligRolleID": "Ansvarlig Søker",
-      "EstimertVarighetDager": null, // Ventetid
+      "EstimertVarighetDager": null,
       "BeregnetStartDato": null,
       "BeregnetSluttDato": null,
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [39] // Krever utført sluttbefaring og samlet dokumentasjon
+      "Forutsetninger": [39]
     },
     {
       "OppgaveID": "TASK-041",
@@ -633,9 +621,7 @@
       "FaktiskStartDato": null,
       "FaktiskSluttDato": null,
       "Status": "Ikke startet",
-      "Forutsetninger": [40] // Krever ferdigattest/brukstillatelse
+      "Forutsetninger": [40]
     }
   ]
-  // === 1.2: TASK LIST END ===
 }
-// === 1: PROJECT DATA END ===
