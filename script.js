@@ -19,6 +19,7 @@ const projectEtaEl = document.getElementById('projectEta');
 const progressBarEl = document.getElementById('progressBar');
 const progressPercentageEl = document.getElementById('progressPercentage');
 const activeTasksListEl = document.getElementById('activeTasksList');
+const pendingActionsListEl = document.getElementById('pendingActionsList'); // New element for actions
 const latestNotificationsListEl = document.getElementById('latestNotificationsList');
 const fullTaskListContainerEl = document.getElementById('fullTaskListContainer');
 const myTasksListContainerEl = document.getElementById('myTasksListContainer');
@@ -80,7 +81,7 @@ async function loadData() {
         const projectText = await projectResponse.text();
         const userText = await userResponse.text();
 
-        // Remove comments and then parse
+        // Remove comments (though files should be clean now) and then parse
         projectData = JSON.parse(removeJsonComments(projectText));
         userData = JSON.parse(removeJsonComments(userText));
 
@@ -94,7 +95,7 @@ async function loadData() {
         // Display a more user-friendly error message
         let displayError = 'Kunne ikke laste prosjektdata. ';
         if (error instanceof SyntaxError) {
-            displayError += 'Det er en feil i formatet til en av JSON-filene (etter fjerning av kommentarer). Sjekk konsollen for detaljer.';
+            displayError += 'Det er en feil i formatet til en av JSON-filene. Sjekk at alle nøkler og strenger er i doble anførselstegn og at det ikke er kommentarer. Sjekk konsollen for detaljer.';
         } else {
             displayError += ` (${error.message}). Sjekk at filene er tilgjengelige og korrekt formatert.`;
         }
@@ -113,31 +114,34 @@ function processLoadedData() {
 
     tasks = projectData.tasks.map(task => ({
         ...task,
-        // Convert prerequisite numbers to actual task IDs for easier lookup
         ForutsetningerIDs: task.Forutsetninger.map(nr => `TASK-${String(nr).padStart(3, '0')}`),
-        // Initialize date objects (null for now, could parse strings if they exist)
         BeregnetStartDato: task.BeregnetStartDato ? new Date(task.BeregnetStartDato) : null,
         BeregnetSluttDato: task.BeregnetSluttDato ? new Date(task.BeregnetSluttDato) : null,
         FaktiskStartDato: task.FaktiskStartDato ? new Date(task.FaktiskStartDato) : null,
         FaktiskSluttDato: task.FaktiskSluttDato ? new Date(task.FaktiskSluttDato) : null,
-        // Add fields for new features
-        GodkjentAvLeder: false, // For double sign-off
-        ProblemBeskrivelse: null // For "Nødbrems"
+        EstimertVarighetDager: typeof task.EstimertVarighetDager === 'number' ? task.EstimertVarighetDager : null,
+        GodkjentAvLeder: false,
+        ProblemBeskrivelse: null,
+        JustMadeReady: false // New flag for "blinkende lys" simulation
     }));
 
     roles = userData.roles;
     users = userData.users;
 
-    // Set initial user (e.g., the first user or the project leader)
     const projectLeader = users.find(u => u.RolleIDs.includes('ROLLE-PL')) || users[0];
     if (projectLeader) {
         currentUser = projectLeader;
+    } else if (users.length > 0) {
+        currentUser = users[0];
+    } else {
+        console.error("Ingen brukere funnet i users_roles.json!");
     }
 
-    // Populate UI elements that depend on loaded data
     populateUserSelector();
     populatePhaseFilter();
-    populateMessageRecipientSelector(); // Populate recipient list
+    populateMessageRecipientSelector();
+
+    calculateInitialDates();
 }
 
 /**
@@ -145,17 +149,16 @@ function processLoadedData() {
  */
 function populateUserSelector() {
     if (!users || users.length === 0) {
-         userSelect.innerHTML = '<option value="">Ingen brukere</option>'; // Handle case with no users
+         userSelect.innerHTML = '<option value="">Ingen brukere</option>';
         return;
     }
-    userSelect.innerHTML = ''; // Clear existing options ("Laster brukere...")
+    userSelect.innerHTML = '';
     users.forEach(user => {
         const option = document.createElement('option');
         option.value = user.BrukerID;
         option.textContent = `${user.Navn} (${getRolesForUser(user).map(r => r.RolleNavn).join(', ')})`;
         userSelect.appendChild(option);
     });
-    // Set the selected value based on currentUser
     if (currentUser) {
         userSelect.value = currentUser.BrukerID;
     }
@@ -165,9 +168,9 @@ function populateUserSelector() {
  * Populates the phase filter dropdown.
  */
 function populatePhaseFilter() {
-    const phases = [...new Set(tasks.map(task => task.Fase))]; // Get unique phases
-    phaseFilterEl.innerHTML = '<option value="all">Alle Faser</option>'; // Reset
-    phases.sort(); // Sort phases alphabetically/numerically
+    const phases = [...new Set(tasks.map(task => task.Fase))];
+    phaseFilterEl.innerHTML = '<option value="all">Alle Faser</option>';
+    phases.sort();
     phases.forEach(phase => {
         const option = document.createElement('option');
         option.value = phase;
@@ -181,14 +184,31 @@ function populatePhaseFilter() {
  */
  function populateMessageRecipientSelector() {
     if (!users) return;
-    messageRecipientEl.innerHTML = ''; // Clear existing
+    messageRecipientEl.innerHTML = '';
     users.forEach(user => {
         const option = document.createElement('option');
         option.value = user.BrukerID;
         option.textContent = user.Navn;
         messageRecipientEl.appendChild(option);
     });
-    // Optionally add roles? For PoC, sending to users is simpler.
+}
+
+/**
+ * Performs initial calculation of all task dates.
+ */
+ function calculateInitialDates() {
+    console.log("Calculating initial task dates...");
+    tasks.forEach(task => {
+        task.BeregnetStartDato = calculateEarliestStartDate(task);
+    });
+    tasks.forEach(task => {
+        if (task.BeregnetStartDato && task.EstimertVarighetDager !== null) {
+            task.BeregnetSluttDato = addWorkDays(task.BeregnetStartDato, task.EstimertVarighetDager);
+        } else {
+            task.BeregnetSluttDato = null;
+        }
+    });
+    console.log("Initial dates calculated.");
 }
 
 
@@ -198,14 +218,48 @@ function populatePhaseFilter() {
 async function init() {
     console.log("Initializing application...");
     setupEventListeners();
-    await loadData(); // Load data first
-    if (projectData && userData) { // Ensure data is loaded before rendering
-        renderApp(); // Initial render
+    // Add the new dashboard card to the HTML structure before loading data
+    setupDashboardCards();
+    await loadData();
+    if (projectData && userData) {
+        renderApp();
     } else {
          console.log("Initialization halted due to data loading failure.");
-         // Error message is already displayed by loadData() in case of failure
     }
 }
+
+/**
+ * Dynamically adds the 'Pending Actions' card structure to the dashboard grid.
+ * This ensures the element exists before rendering tries to access it.
+ */
+function setupDashboardCards() {
+    const dashboardGrid = document.querySelector('#dashboard .dashboard-grid');
+    if (!dashboardGrid) return;
+
+    // Check if the card already exists
+    if (!document.getElementById('pendingActionsCard')) {
+        const pendingActionsCard = document.createElement('div');
+        pendingActionsCard.classList.add('card');
+        pendingActionsCard.id = 'pendingActionsCard'; // Give it an ID
+        pendingActionsCard.innerHTML = `
+            <h3>Handlinger Kreves <span class="action-count"></span></h3>
+            <ul id="pendingActionsList">
+                <li>Laster...</li>
+            </ul>
+        `;
+         // Insert it after the 'Active Tasks' card, for example
+         const activeTasksCard = document.getElementById('activeTasksCard');
+         if (activeTasksCard) {
+            activeTasksCard.parentNode.insertBefore(pendingActionsCard, activeTasksCard.nextSibling);
+         } else {
+             // Fallback: append to the grid if active tasks card not found
+            dashboardGrid.appendChild(pendingActionsCard);
+         }
+    }
+
+}
+
+
 // === 5.2: INITIALIZATION FUNCTIONS END ===
 
 
@@ -215,37 +269,28 @@ async function init() {
  * Main render function to update the entire UI based on current state.
  */
 function renderApp() {
-    // Added check: Do not proceed if data is missing
     if (!projectData || !userData || !currentUser) {
         console.log("Render blocked: Missing data or currentUser.");
-        // Ensure the error message remains visible if needed
         if (!document.querySelector('#appContent p[style*="color: red;"]')) {
              appContent.innerHTML = '<p style="color: orange; padding: 20px;">Kan ikke vise data. Prøv å laste siden på nytt.</p>';
         }
-        return; // Stop rendering
+        return;
     }
-     // Clear potential error messages if rendering proceeds
     const errorMsgElement = document.querySelector('#appContent p[style*="color: red;"], #appContent p[style*="color: orange;"]');
     if (errorMsgElement) {
         errorMsgElement.remove();
     }
 
-
     console.log(`Rendering app for user: ${currentUser.Navn}, view: ${currentView}`);
 
-    // Update all views, even hidden ones, so data is ready when switching
     renderDashboard();
     renderFullTaskList();
     renderMyTasksList();
     renderUserList();
     renderDependenciesView();
-    renderMessages(); // Render messages/notifications list
-    // Task Detail view is rendered on demand (when a task is clicked)
+    renderMessages();
 
-    // Activate the correct view
     switchView(currentView);
-
-    // Update active nav button
     updateActiveNavButton();
 }
 
@@ -253,36 +298,69 @@ function renderApp() {
  * Renders the dashboard view.
  */
 function renderDashboard() {
-    if (!projectData) return; // Guard against missing data
-    // Project Status & ETA
-    projectStatusEl.textContent = projectData.project.Status; // Simple status for now
-    projectEtaEl.textContent = calculateProjectEta(); // Calculate rough ETA
+    if (!projectData) return;
+    projectStatusEl.textContent = projectData.project.Status;
+    projectEtaEl.textContent = calculateProjectEta();
 
-    // Progress Bar
     const progress = calculateProjectProgress();
     progressBarEl.style.width = `${progress}%`;
-    // progressBarEl.textContent = `${progress}%`; // Optional: text inside bar
     progressPercentageEl.textContent = progress;
 
     // Active Tasks
     const activeTasks = tasks.filter(task => task.Status === 'Pågår');
-    activeTasksListEl.innerHTML = ''; // Clear list
+    activeTasksListEl.innerHTML = '';
     if (activeTasks.length === 0) {
         activeTasksListEl.innerHTML = '<li>Ingen aktive oppgaver</li>';
     } else {
-        activeTasks.slice(0, 5).forEach(task => { // Show max 5
+        activeTasks.slice(0, 5).forEach(task => {
             const li = document.createElement('li');
             const responsibleRole = getRoleById(task.AnsvarligRolleID);
-            li.innerHTML = `<strong>${task.OppgaveNr}. ${task.OppgaveNavn}</strong> (${responsibleRole ? responsibleRole.RolleNavn : 'Ukjent'})`;
-             // Make task name clickable to go to details
-             li.querySelector('strong').style.cursor = 'pointer';
-             li.querySelector('strong').onclick = () => showTaskDetail(task.OppgaveID);
+            li.innerHTML = `<strong style="cursor: pointer;">${task.OppgaveNr}. ${task.OppgaveNavn}</strong> (${responsibleRole ? responsibleRole.RolleNavn : 'Ukjent'})`;
+            li.querySelector('strong').onclick = () => showTaskDetail(task.OppgaveID);
             activeTasksListEl.appendChild(li);
         });
     }
 
-    // Latest Notifications (Simulated) - Render from `notifications` array
-    renderNotificationsList(latestNotificationsListEl, 5); // Show max 5 on dashboard
+    // Pending Actions for current user
+    renderPendingActions(); // New function call
+
+    // Latest Notifications
+    renderNotificationsList(latestNotificationsListEl, 5);
+}
+
+/**
+ * Renders the "Pending Actions" card on the dashboard.
+ */
+ function renderPendingActions() {
+    const pendingActionsListEl = document.getElementById('pendingActionsList'); // Get the element reference here
+    const actionCountSpan = document.querySelector('#pendingActionsCard .action-count'); // Get the span for count
+    if (!pendingActionsListEl || !actionCountSpan) return; // Ensure elements exist
+
+    const actions = getPendingActionsForUser(currentUser);
+    pendingActionsListEl.innerHTML = ''; // Clear list
+
+    if (actions.length === 0) {
+        pendingActionsListEl.innerHTML = '<li>Ingen handlinger kreves.</li>';
+        actionCountSpan.textContent = ''; // Clear count
+    } else {
+         actionCountSpan.textContent = `(${actions.length})`; // Show count
+        actions.slice(0, 5).forEach(action => { // Show max 5 on dashboard
+            const li = document.createElement('li');
+            li.style.cursor = 'pointer';
+            li.innerHTML = `<strong>${action.type}:</strong> ${action.task.OppgaveNr}. ${action.task.OppgaveNavn}`;
+             // Add specific styling for ready-to-start tasks ("blink")
+             if (action.type === 'Start Oppgave' && action.task.JustMadeReady) {
+                 li.style.backgroundColor = 'var(--status-waiting)'; // Use yellow background
+                 li.style.fontWeight = 'bold';
+             }
+            li.onclick = () => showTaskDetail(action.task.OppgaveID);
+            pendingActionsListEl.appendChild(li);
+             // Reset the 'JustMadeReady' flag after displaying it once on dashboard
+             if (action.type === 'Start Oppgave' && action.task.JustMadeReady) {
+                 action.task.JustMadeReady = false;
+             }
+        });
+    }
 }
 
 
@@ -299,16 +377,17 @@ function renderFullTaskList() {
         return phaseMatch && statusMatch;
     });
 
-    fullTaskListContainerEl.innerHTML = ''; // Clear previous list
+    fullTaskListContainerEl.innerHTML = '';
     if (filteredTasks.length === 0) {
         fullTaskListContainerEl.innerHTML = '<p>Ingen oppgaver matcher filtrene.</p>';
         return;
     }
 
-    filteredTasks.sort((a, b) => a.OppgaveNr - b.OppgaveNr); // Sort by number
+    filteredTasks.sort((a, b) => a.OppgaveNr - b.OppgaveNr);
 
     filteredTasks.forEach(task => {
-        fullTaskListContainerEl.appendChild(createTaskElement(task, true)); // Pass true for admin view
+         const isViewerProjectLeader = currentUser?.RolleIDs.includes('ROLLE-PL');
+        fullTaskListContainerEl.appendChild(createTaskElement(task, true, isViewerProjectLeader));
     });
 }
 
@@ -321,78 +400,95 @@ function renderMyTasksList() {
         return;
     }
 
+    const isProjectLeader = currentUser.RolleIDs.includes('ROLLE-PL');
+
     const myTasks = tasks.filter(task => {
-        const taskRole = getRoleById(task.AnsvarligRolleID);
-        if (!taskRole) return false;
-        // Check if any of the current user's roles match the task's responsible role ID
-        return currentUser.RolleIDs.includes(task.AnsvarligRolleID);
+        const isResponsible = currentUser.RolleIDs.includes(task.AnsvarligRolleID);
+        const isWaitingForApproval = isProjectLeader && task.Status === 'Venter på Godkjenning';
+        return isResponsible || isWaitingForApproval;
     });
 
-    myTasksListContainerEl.innerHTML = ''; // Clear previous list
+    myTasksListContainerEl.innerHTML = '';
     if (myTasks.length === 0) {
-        myTasksListContainerEl.innerHTML = '<p>Ingen oppgaver tildelt denne rollen/brukeren.</p>';
+        myTasksListContainerEl.innerHTML = '<p>Ingen relevante oppgaver for denne brukeren/rollen akkurat nå.</p>';
         return;
     }
 
-    // Sort user's tasks: Problematic first, then Ongoing, Pending Approval, Waiting, Not Started, Completed last
     myTasks.sort((a, b) => {
         const statusOrder = {
             "Problem Rapportert": 1,
-            "Pågår": 2,
-            "Venter på Godkjenning": 3,
-            "Venter på forutsetning": 4,
-            "Ikke startet": 5,
+            "Venter på Godkjenning": 2,
+            "Pågår": 3,
+            "Ikke startet": 4,
+            "Venter på forutsetning": 5,
             "Utført": 6
         };
-        const orderA = statusOrder[a.Status] || 99;
-        const orderB = statusOrder[b.Status] || 99;
-        if (orderA !== orderB) {
-            return orderA - orderB;
-        }
-        return a.OppgaveNr - b.OppgaveNr; // Then sort by task number
+        const effectiveStatusA = (isProjectLeader && a.Status === 'Venter på Godkjenning') ? 'Venter på Godkjenning' : a.Status;
+        const effectiveStatusB = (isProjectLeader && b.Status === 'Venter på Godkjenning') ? 'Venter på Godkjenning' : b.Status;
+        const orderA = statusOrder[effectiveStatusA] || 99;
+        const orderB = statusOrder[effectiveStatusB] || 99;
+        if (orderA !== orderB) return orderA - orderB;
+
+         const dateA = a.BeregnetStartDato || new Date('9999-12-31');
+         const dateB = b.BeregnetStartDato || new Date('9999-12-31');
+        const dateAIsValid = dateA instanceof Date && !isNaN(dateA);
+        const dateBIsValid = dateB instanceof Date && !isNaN(dateB);
+        if (dateAIsValid && dateBIsValid) {
+             if (dateA.getTime() !== dateB.getTime()) return dateA - dateB;
+         } else if (dateAIsValid) return -1;
+           else if (dateBIsValid) return 1;
+
+        return a.OppgaveNr - b.OppgaveNr;
     });
 
-
     myTasks.forEach(task => {
-        myTasksListContainerEl.appendChild(createTaskElement(task, false)); // Pass false for non-admin view
+        myTasksListContainerEl.appendChild(createTaskElement(task, false, isProjectLeader));
     });
 }
 
 /**
  * Creates an HTML element representing a single task item.
- * @param {object} task - The task object.
- * @param {boolean} isAdminView - If true, show admin controls (like fast complete).
- * @returns {HTMLElement} - The created task element (div).
  */
-function createTaskElement(task, isAdminView) {
+function createTaskElement(task, isAdminView, isViewerProjectLeader = false) {
     const taskElement = document.createElement('div');
     taskElement.classList.add('task-item');
     taskElement.dataset.taskId = task.OppgaveID;
-    taskElement.dataset.status = task.Status; // Used for CSS styling
+    taskElement.dataset.status = task.Status;
 
     const responsibleRole = getRoleById(task.AnsvarligRolleID);
-    const durationText = task.EstimertVarighetDager !== null ? `${task.EstimertVarighetDager} dager` : 'Ikke estimert'; // Show 0 days
+    const durationText = task.EstimertVarighetDager !== null ? `${task.EstimertVarighetDager} dager` : 'Ikke estimert';
+
+    const approvalCue = (isViewerProjectLeader && task.Status === 'Venter på Godkjenning')
+        ? `<strong style="color:var(--status-pending-approval); margin-left: 10px;">⚠️ Til Godkjenning</strong>`
+        : '';
+    const problemCue = (task.Status === 'Problem Rapportert')
+        ? `<strong style="color:var(--status-problem)"> (${task.ProblemBeskrivelse || 'Problem rapportert'})</strong>`
+        : '';
+     // New: Cue for tasks ready to start
+     const readyToStartCue = (task.Status === 'Ikke startet' && arePrerequisitesMet(task) && currentUser.RolleIDs.includes(task.AnsvarligRolleID))
+         ? `<strong style="color: green; margin-left: 10px;">✅ Klar til start!</strong>`
+         : '';
+
 
     taskElement.innerHTML = `
-        <h4>${task.OppgaveNr}. ${task.OppgaveNavn}</h4>
+        <h4>${task.OppgaveNr}. ${task.OppgaveNavn} ${approvalCue} ${readyToStartCue}</h4>
         <div class="task-meta">
             Ansvarlig: ${responsibleRole ? responsibleRole.RolleNavn : 'Ukjent'} | Status: ${task.Status}
-            ${task.Status === 'Problem Rapportert' ? `<strong style="color:var(--status-problem)"> (${task.ProblemBeskrivelse || 'Problem rapportert'})</strong>` : ''}
-            ${task.Status === 'Venter på Godkjenning' ? `<strong style="color:var(--status-pending-approval)"> (Venter på ledergodkjenning)</strong>` : ''}
+            ${problemCue}
+             | Start: ${formatDate(task.BeregnetStartDato)} | Slutt: ${formatDate(task.BeregnetSluttDato)}
         </div>
         <div class="task-duration">${durationText}</div>
         <div class="task-actions">
             <button class="details-button">Detaljer</button>
-            ${isAdminView && currentUser?.RolleIDs.includes('ROLLE-PL') && task.Status !== 'Utført' ?
+            ${isAdminView && isViewerProjectLeader && task.Status !== 'Utført' ?
                 '<button class="admin-complete-button" title="Admin: Hurtigfullfør (inkl. godkjenning)">⚡ Fullfør</button>'
                 : ''
             }
         </div>
     `;
 
-    // Add event listeners for buttons
     taskElement.querySelector('.details-button').addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent triggering other clicks if nested
+        e.stopPropagation();
         showTaskDetail(task.OppgaveID);
     });
 
@@ -404,30 +500,28 @@ function createTaskElement(task, isAdminView) {
         });
     }
 
+     // Add "blink" effect styling if JustMadeReady
+     if (task.JustMadeReady && task.Status === 'Ikke startet') {
+         taskElement.style.animation = 'blinkBackground 1.5s ease-in-out 2'; // Blink twice
+     }
+
+
     return taskElement;
 }
 
 /**
  * Renders the task detail view.
- * @param {string} taskId - The ID of the task to show details for.
  */
 function showTaskDetail(taskId) {
     const task = findTaskById(taskId);
     if (!task) return;
 
-    // Ensure the main app container doesn't show an error message
-     const errorMsgElement = document.querySelector('#appContent p[style*="color: red;"], #appContent p[style*="color: orange;"]');
-    if (errorMsgElement) {
-        errorMsgElement.remove();
-    }
+    const errorMsgElement = document.querySelector('#appContent p[style*="color: red;"], #appContent p[style*="color: orange;"]');
+    if (errorMsgElement) errorMsgElement.remove();
 
-
-    currentView = 'taskDetail'; // Set internal state, but don't call switchView yet
-    taskDetailViewEl.classList.add('active-view'); // Show the detail view container
-
-    // Hide other views manually
-     document.querySelectorAll('.view:not(#taskDetail)').forEach(v => v.classList.remove('active-view'));
-
+    currentView = 'taskDetail';
+    taskDetailViewEl.classList.add('active-view');
+    document.querySelectorAll('.view:not(#taskDetail)').forEach(v => v.classList.remove('active-view'));
 
     const responsibleRole = getRoleById(task.AnsvarligRolleID);
     const responsibleUsers = findUsersByRole(task.AnsvarligRolleID);
@@ -459,24 +553,18 @@ function showTaskDetail(taskId) {
 
     let actionButtonsHtml = generateActionButtons(task);
 
-
     taskDetailContentEl.innerHTML = `
         <h3>Generell Informasjon</h3>
         <p><strong>Fase:</strong> ${task.Fase}</p>
         <p><strong>Beskrivelse:</strong> ${task.Beskrivelse || 'Ingen beskrivelse.'}</p>
-        <p>
-            <strong>Ansvarlig Rolle:</strong> ${responsibleRole ? responsibleRole.RolleNavn : 'Ukjent'}
-        </p>
-        <p>
-            <strong>Ansvarlig(e) Bruker(e):</strong>
+        <p><strong>Ansvarlig Rolle:</strong> ${responsibleRole ? responsibleRole.RolleNavn : 'Ukjent'}</p>
+        <p><strong>Ansvarlig(e) Bruker(e):</strong>
             ${responsibleUsers.length > 0 ? responsibleUsers.map(u => `<span class="clickable-user" data-user-id="${u.BrukerID}">${u.Navn}</span>`).join(', ') : 'Ingen brukere funnet'}
         </p>
-
         <h3>Status & Tidsplan</h3>
         <p><strong>Nåværende Status:</strong> ${task.Status}</p>
         ${task.Status === 'Problem Rapportert' ? `<p style="color:var(--status-problem)"><strong>Problem:</strong> ${task.ProblemBeskrivelse || 'Problem rapportert'}</p>` : ''}
         ${task.Status === 'Venter på Godkjenning' ? `<p style="color:var(--status-pending-approval)"><strong>Venter på godkjenning fra Prosjektleder.</strong></p>` : ''}
-
         <p><strong>Estimert Varighet:</strong>
            <input type="number" id="durationInput_${task.OppgaveID}" value="${task.EstimertVarighetDager !== null ? task.EstimertVarighetDager : ''}" min="0" step="1" ${canEditDuration(task) ? '' : 'disabled'} style="width: 60px; margin-left: 5px;"> dager
            ${canEditDuration(task) ? `<button class="save-duration-button" data-task-id="${task.OppgaveID}">Lagre</button>` : ''}
@@ -485,74 +573,51 @@ function showTaskDetail(taskId) {
         <p><strong>Beregnet Slutt:</strong> ${formatDate(task.BeregnetSluttDato)}</p>
         <p><strong>Faktisk Start:</strong> ${formatDate(task.FaktiskStartDato)}</p>
         <p><strong>Faktisk Slutt:</strong> ${formatDate(task.FaktiskSluttDato)}</p>
-
-        <div class="task-detail-actions">
-            ${actionButtonsHtml}
-        </div>
-
+        <div class="task-detail-actions">${actionButtonsHtml}</div>
         <h3>Avhengigheter</h3>
         <p><strong>Forutsetninger (Må være ferdig først):</strong></p>
         ${prerequisitesHtml}
         <p><strong>Etterfølgende Oppgaver (Venter på denne):</strong></p>
         ${successorsHtml}
-
         <h3>Kommunikasjon (Simulert)</h3>
         <textarea id="taskCommentInput" placeholder="Legg til notat/melding knyttet til oppgaven..."></textarea>
         <button id="addTaskCommentButton">Legg til Notat</button>
-        <ul id="taskCommentsList">
-            <!-- Comments/messages related to this task would go here -->
-            <li>Ingen notater ennå.</li>
-        </ul>
-
-         <!-- Add user selector specific to this task detail view -->
-         <div class="user-selector task-detail-user-selector" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--gray-medium);">
+        <ul id="taskCommentsList"><li>Ingen notater ennå.</li></ul>
+        <div class="user-selector task-detail-user-selector" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--gray-medium);">
             <label for="taskDetailUserSelect">Vis denne oppgaven som:</label>
-            <select id="taskDetailUserSelect">
-                <!-- Options populated like the main selector -->
-            </select>
+            <select id="taskDetailUserSelect"></select>
         </div>
     `;
 
-    // Populate the task-specific user selector
     populateTaskDetailUserSelector(taskId);
-
-
-    // Add event listeners for dynamically created elements
     addTaskDetailEventListeners(task);
 }
 
 /**
  * Populates the user selector within the task detail view.
- * @param {string} taskId
  */
  function populateTaskDetailUserSelector(taskId) {
     const taskDetailSelect = document.getElementById('taskDetailUserSelect');
     if (!taskDetailSelect || !users) return;
-
-    taskDetailSelect.innerHTML = ''; // Clear
+    taskDetailSelect.innerHTML = '';
     users.forEach(user => {
         const option = document.createElement('option');
         option.value = user.BrukerID;
         option.textContent = `${user.Navn} (${getRolesForUser(user).map(r => r.RolleNavn).join(', ')})`;
         taskDetailSelect.appendChild(option);
     });
-
-    // Set the selected value based on the global currentUser
     if (currentUser) {
         taskDetailSelect.value = currentUser.BrukerID;
     }
-
-    // Add event listener specific to this select dropdown
-    taskDetailSelect.removeEventListener('change', handleTaskDetailUserChange); // Remove previous if any
+    taskDetailSelect.removeEventListener('change', handleTaskDetailUserChange);
     taskDetailSelect.addEventListener('change', handleTaskDetailUserChange);
 }
-
 
 /**
  * Renders the user list table.
  */
 function renderUserList() {
-    userListBodyEl.innerHTML = ''; // Clear table body
+    userListBodyEl.innerHTML = '';
     if (!users || users.length === 0) {
         userListBodyEl.innerHTML = '<tr><td colspan="4">Ingen brukere funnet.</td></tr>';
         return;
@@ -580,7 +645,6 @@ function renderDependenciesView() {
         return;
     }
 
-    // --- What am I waiting for? ---
     waitingForListEl.innerHTML = '';
     const myWaitingTasks = tasks.filter(task =>
         currentUser.RolleIDs.includes(task.AnsvarligRolleID) &&
@@ -598,16 +662,12 @@ function renderDependenciesView() {
             waitingForListEl.appendChild(li);
         }
     });
-    if (!waitingFound) {
-        waitingForListEl.innerHTML = '<li>Du venter ikke på noen spesifikke uferdige forutsetninger for dine tildelte oppgaver.</li>';
-    }
+    if (!waitingFound) waitingForListEl.innerHTML = '<li>Du venter ikke på noen spesifikke uferdige forutsetninger.</li>';
 
-
-    // --- Who is waiting for me? ---
     waitingOnMeListEl.innerHTML = '';
     const myActiveOrPendingTasks = tasks.filter(task =>
         currentUser.RolleIDs.includes(task.AnsvarligRolleID) &&
-        (task.Status !== 'Utført') // Tasks I am working on or need to do
+        (task.Status !== 'Utført')
     );
 
     let waitingOnMeFound = false;
@@ -627,25 +687,21 @@ function renderDependenciesView() {
             waitingOnMeListEl.appendChild(li);
         }
     });
-     if (!waitingOnMeFound) {
-        waitingOnMeListEl.innerHTML = '<li>Ingen andre oppgaver ser ut til å vente spesifikt på at dine nåværende oppgaver skal bli ferdige.</li>';
-    }
+     if (!waitingOnMeFound) waitingOnMeListEl.innerHTML = '<li>Ingen andre oppgaver venter på dine uferdige oppgaver.</li>';
 }
 
 /**
  * Renders the simulated messages/notifications list.
- * @param {HTMLElement} targetListElement - The UL element to render into.
- * @param {number} [maxItems=null] - Maximum number of items to display (null for all).
  */
  function renderMessages(targetListElement = messageListContainerEl, maxItems = null) {
-    targetListElement.innerHTML = ''; // Clear list
+     if (!targetListElement) return;
+    targetListElement.innerHTML = '';
 
     if (notifications.length === 0) {
         targetListElement.innerHTML = '<li>Ingen meldinger eller varsler.</li>';
         return;
     }
 
-    // Sort notifications newest first
     const sortedNotifications = [...notifications].sort((a, b) => b.timestamp - a.timestamp);
     const itemsToRender = maxItems ? sortedNotifications.slice(0, maxItems) : sortedNotifications;
 
@@ -655,21 +711,18 @@ function renderDependenciesView() {
         if (notif.type === 'message') {
              const sender = findUserById(notif.senderId);
              const recipient = findUserById(notif.recipientId);
-            content = `
-                <strong>Melding fra: ${sender ? sender.Navn : 'Ukjent'} til ${recipient ? recipient.Navn : 'Ukjent'}</strong>
-                <small>${formatDate(notif.timestamp, true)}</small>
-                <p><em>${notif.subject || '(Intet emne)'}</em></p>
-                <p>${notif.body}</p>`;
+            content = `<strong>Melding fra: ${sender ? sender.Navn : 'Ukjent'} til ${recipient ? recipient.Navn : 'Ukjent'}</strong>
+                       <small>${formatDate(notif.timestamp, true)}</small>
+                       <p><em>${notif.subject || '(Intet emne)'}</em></p>
+                       <p>${notif.body}</p>`;
         } else if (notif.type === 'system') {
-             content = `
-                <strong>Systemvarsel</strong>
-                <small>${formatDate(notif.timestamp, true)}</small>
-                <p>${notif.body}</p>`;
+             content = `<strong>Systemvarsel</strong>
+                        <small>${formatDate(notif.timestamp, true)}</small>
+                        <p>${notif.body}</p>`;
         } else {
-            content = `
-                <strong>Ukjent varsel</strong>
-                 <small>${formatDate(notif.timestamp, true)}</small>
-                <p>${notif.body}</p>`;
+             content = `<strong>Ukjent varsel</strong>
+                        <small>${formatDate(notif.timestamp, true)}</small>
+                        <p>${notif.body}</p>`;
         }
         li.innerHTML = content;
         targetListElement.appendChild(li);
@@ -680,21 +733,25 @@ function renderDependenciesView() {
  * Renders just the notifications list (used by dashboard and message view).
  */
 function renderNotificationsList(targetListElement, maxItems = null) {
-    targetListElement.innerHTML = ''; // Clear list
+     if (!targetListElement) return;
+    targetListElement.innerHTML = '';
 
     if (notifications.length === 0) {
         targetListElement.innerHTML = '<li>Ingen nye hendelser.</li>';
         return;
     }
 
-    // Sort notifications newest first
     const sortedNotifications = [...notifications].sort((a, b) => b.timestamp - a.timestamp);
     const itemsToRender = maxItems ? sortedNotifications.slice(0, maxItems) : sortedNotifications;
 
     itemsToRender.forEach(notif => {
         const li = document.createElement('li');
         li.innerHTML = `<small>${formatDate(notif.timestamp, true)}:</small> ${notif.body}`;
-        // Make clickable if related to a task?
+         // Add styling for "Klar til start" notifications
+         if (notif.body.includes("Arbeidet kan startes")) {
+             li.style.backgroundColor = 'var(--status-waiting)'; // Yellowish background
+             li.style.borderLeft = '3px solid var(--accent-color)';
+         }
         if (notif.taskId) {
             li.style.cursor = 'pointer';
             li.onclick = () => showTaskDetail(notif.taskId);
@@ -705,19 +762,14 @@ function renderNotificationsList(targetListElement, maxItems = null) {
 
 /**
  * Generates the HTML for action buttons in the task detail view
- * based on task status and current user role.
- * @param {object} task - The task object.
- * @returns {string} HTML string for the buttons.
  */
 function generateActionButtons(task) {
     let buttonsHtml = '';
-     // Add null check for currentUser
     if (!currentUser) return buttonsHtml;
 
     const isProjectLeader = currentUser.RolleIDs.includes('ROLLE-PL');
     const isResponsibleUser = currentUser.RolleIDs.includes(task.AnsvarligRolleID);
 
-    // --- Actions for Responsible User ---
     if (isResponsibleUser) {
         if (task.Status === 'Ikke startet' || task.Status === 'Venter på forutsetning') {
             const canStart = arePrerequisitesMet(task);
@@ -726,24 +778,20 @@ function generateActionButtons(task) {
         if (task.Status === 'Pågår') {
              buttonsHtml += `<button class="complete-task-button" data-task-id="${task.OppgaveID}">Marker som Utført (Send til godkjenning)</button>`;
         }
-         // Problem button always available for responsible user if task is not 'Utført'
         if (task.Status !== 'Utført' && task.Status !== 'Problem Rapportert') {
              buttonsHtml += `<button class="problem-button" data-task-id="${task.OppgaveID}">Rapporter Problem (Nødbrems)</button>`;
         }
     }
 
-    // --- Actions for Project Leader ---
     if (isProjectLeader) {
          if (task.Status === 'Venter på Godkjenning') {
             buttonsHtml += `<button class="approve-button" data-task-id="${task.OppgaveID}">Godkjenn Utført Arbeid</button>`;
-            buttonsHtml += `<button class="reject-button" data-task-id="${task.OppgaveID}">Avvis (Send tilbake til 'Pågår')</button>`; // Added reject button
+            buttonsHtml += `<button class="reject-button" data-task-id="${task.OppgaveID}">Avvis (Send tilbake til 'Pågår')</button>`;
          }
          if (task.Status === 'Problem Rapportert') {
              buttonsHtml += `<button class="resolve-problem-button" data-task-id="${task.OppgaveID}">Marker Problem som Løst</button>`;
          }
-         // Admin fast complete button (could also be added here, but handled in task list element for PoC simplicity)
     }
-
     return buttonsHtml;
 }
 
@@ -756,101 +804,66 @@ function generateActionButtons(task) {
  * Sets up all initial event listeners.
  */
 function setupEventListeners() {
-    // User selection change
     userSelect.addEventListener('change', handleUserChange);
-
-    // Navigation button clicks
-    navButtons.forEach(button => {
-        button.addEventListener('click', handleNavClick);
-    });
-
-    // Filter changes
+    navButtons.forEach(button => button.addEventListener('click', handleNavClick));
     phaseFilterEl.addEventListener('change', renderFullTaskList);
     statusFilterEl.addEventListener('change', renderFullTaskList);
-
-     // Back button from task detail
     backToListButton.addEventListener('click', () => {
-        // Determine which list view was active before showing detail?
-        // For simplicity in PoC, always go back to 'Alle Oppgaver' or 'Mine Oppgaver' based on user.
-         if (!currentUser) return; // Add guard clause
-
+         if (!currentUser) return;
         const prevView = currentUser.RolleIDs.includes('ROLLE-PL') ? 'taskList' : 'myTasks';
-        switchView(prevView); // Go back to a list view
-        renderApp(); // Re-render to ensure lists are updated
+        switchView(prevView);
+        renderApp();
     });
-
-    // New Message button and modal actions
     newMessageButton.addEventListener('click', () => {
         newMessageModal.style.display = 'block';
-        // Pre-fill recipient? Maybe not needed.
          messageSubjectEl.value = '';
          messageBodyEl.value = '';
     });
-
-    cancelMessageButton.addEventListener('click', () => {
-        newMessageModal.style.display = 'none';
-    });
-
+    cancelMessageButton.addEventListener('click', () => newMessageModal.style.display = 'none');
     sendMessageButton.addEventListener('click', handleSendMessage);
-
-
-    // Event delegation for dynamically created elements inside taskDetailContent
     taskDetailContentEl.addEventListener('click', handleTaskDetailClicks);
-
 }
 
 /**
  * Handles clicks within the task detail view using event delegation.
- * @param {Event} event - The click event.
  */
 function handleTaskDetailClicks(event) {
-     if (!currentUser) return; // Add guard clause
+     if (!currentUser) return;
 
     const target = event.target;
     const taskId = target.dataset.taskId;
-    const currentTaskInDetail = findTaskById(taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId); // Find current task ID reliably
+    const durationInput = taskDetailContentEl.querySelector('input[id^="durationInput_"]');
+    const currentTaskInDetailId = durationInput ? durationInput.id.split('_')[1] : null;
+    const currentTaskInDetail = currentTaskInDetailId ? findTaskById(currentTaskInDetailId) : null;
 
-
-    // Button clicks
-    if (target.classList.contains('start-task-button') && taskId) {
-        updateTaskStatus(taskId, 'Pågår');
-    } else if (target.classList.contains('complete-task-button') && taskId) {
-        updateTaskStatus(taskId, 'Venter på Godkjenning');
-    } else if (target.classList.contains('approve-button') && taskId) {
-        updateTaskStatus(taskId, 'Utført', { godkjent: true });
-    } else if (target.classList.contains('reject-button') && taskId) {
+    if (target.classList.contains('start-task-button') && taskId) updateTaskStatus(taskId, 'Pågår');
+    else if (target.classList.contains('complete-task-button') && taskId) updateTaskStatus(taskId, 'Venter på Godkjenning');
+    else if (target.classList.contains('approve-button') && taskId) updateTaskStatus(taskId, 'Utført', { godkjent: true });
+    else if (target.classList.contains('reject-button') && taskId) {
         updateTaskStatus(taskId, 'Pågår');
         addNotification('system', `Oppgave ${findTaskById(taskId)?.OppgaveNr} ble avvist av leder og satt tilbake til 'Pågår'.`, null, taskId);
-    } else if (target.classList.contains('problem-button') && taskId) {
-        reportProblem(taskId);
-    } else if (target.classList.contains('resolve-problem-button') && taskId) {
-        resolveProblem(taskId);
-    } else if (target.classList.contains('save-duration-button') && taskId) {
-        handleSaveDuration(taskId);
-    } else if (target.id === 'addTaskCommentButton') {
+    } else if (target.classList.contains('problem-button') && taskId) reportProblem(taskId);
+    else if (target.classList.contains('resolve-problem-button') && taskId) resolveProblem(taskId);
+    else if (target.classList.contains('save-duration-button') && taskId) handleSaveDuration(taskId);
+    else if (target.id === 'addTaskCommentButton') {
          const commentInput = document.getElementById('taskCommentInput');
          if (commentInput && commentInput.value.trim() !== '' && currentTaskInDetail) {
              addNotification('system', `Notat lagt til Oppgave ${currentTaskInDetail.OppgaveNr}: "${commentInput.value.trim()}"`, currentUser.BrukerID, currentTaskInDetail.OppgaveID);
              commentInput.value = '';
-             // Re-render messages? Or add dynamically? For now, rely on next full render.
-             // Maybe re-render just the message part of the detail view?
-             renderMessages(); // Re-render main message list and dashboard notification list
+             renderMessages();
+             renderNotificationsList(latestNotificationsListEl, 5);
          }
-    }
-     // Clickable user spans for role switching
-     else if (target.classList.contains('clickable-user') && target.dataset.userId) {
+    } else if (target.classList.contains('clickable-user') && target.dataset.userId) {
         const userIdToSwitch = target.dataset.userId;
         const userToSwitch = findUserById(userIdToSwitch);
         if (userToSwitch && currentTaskInDetail) {
             currentUser = userToSwitch;
-            userSelect.value = currentUser.BrukerID; // Update global selector
-            // Re-render the task detail view immediately with the new user's perspective
-            showTaskDetail(currentTaskInDetail.OppgaveID); // Use the reliably found task ID
-            addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null); // Notify about user switch
+            userSelect.value = currentUser.BrukerID;
+            showTaskDetail(currentTaskInDetail.OppgaveID);
+            addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null);
         }
     }
 }
-
 
 /**
  * Handles changes in the global user selector.
@@ -860,34 +873,30 @@ function handleUserChange() {
     currentUser = findUserById(selectedUserId);
      if (!currentUser) {
         console.error("Selected user not found!");
-        return; // Prevent further errors
+        return;
     }
-
     console.log("User changed to:", currentUser.Navn);
     addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null);
-    // Determine default view based on role
     currentView = currentUser.RolleIDs.includes('ROLLE-PL') ? 'dashboard' : 'myTasks';
-    renderApp(); // Re-render the entire app for the new user
+    renderApp();
 }
 
 /**
  * Handles changes in the task detail user selector.
  */
 function handleTaskDetailUserChange(event) {
-    const selectedUserId = event.target.value; // Get value from the task detail select
+    const selectedUserId = event.target.value;
     const userToSwitch = findUserById(selectedUserId);
-    const currentTaskInDetail = findTaskById(taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId); // Find current task ID
+    const durationInput = taskDetailContentEl.querySelector('input[id^="durationInput_"]');
+    const currentTaskInDetailId = durationInput ? durationInput.id.split('_')[1] : null;
 
-    if (userToSwitch && currentTaskInDetail) {
+    if (userToSwitch && currentTaskInDetailId) {
         currentUser = userToSwitch;
-        userSelect.value = currentUser.BrukerID; // Update global selector as well for consistency
-
-        // Re-render the task detail view for the new user
-        showTaskDetail(currentTaskInDetail.OppgaveID);
-        addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null); // Notify about user switch
+        userSelect.value = currentUser.BrukerID;
+        showTaskDetail(currentTaskInDetailId);
+        addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null);
     }
 }
-
 
 /**
  * Handles clicks on the main navigation buttons.
@@ -896,37 +905,30 @@ function handleNavClick(event) {
     const targetView = event.target.dataset.targetView;
     if (targetView) {
         currentView = targetView;
-        // Ensure data is present before switching/rendering
         if (projectData && userData) {
             switchView(targetView);
             updateActiveNavButton();
-            // Optionally, re-render specific views if needed upon navigation
-            if (targetView === 'messages') {
-                renderMessages(); // Ensure full message list is rendered
-            }
+            if (targetView === 'messages') renderMessages();
+            if (targetView === 'dependencies') renderDependenciesView();
+            if (targetView === 'taskList') renderFullTaskList(); // Ensure list rerenders on nav
+            if (targetView === 'myTasks') renderMyTasksList(); // Ensure list rerenders on nav
+
         } else {
-            // Handle case where user clicks nav before data is loaded
             console.warn("Navigation attempt before data is loaded.");
-             // Maybe show the error message if it exists?
             const errorMsgElement = document.querySelector('#appContent p[style*="color: red;"], #appContent p[style*="color: orange;"]');
-             if (!errorMsgElement) {
-                appContent.innerHTML = '<p style="color: orange; padding: 20px;">Data lastes fortsatt eller en feil har oppstått. Prøv igjen om et øyeblikk.</p>';
-             }
+             if (!errorMsgElement) appContent.innerHTML = '<p style="color: orange; padding: 20px;">Data lastes fortsatt...</p>';
         }
     }
 }
 
 /**
  * Handles saving the duration for a task.
- * @param {string} taskId - The ID of the task.
  */
 function handleSaveDuration(taskId) {
     const task = findTaskById(taskId);
     const inputElement = document.getElementById(`durationInput_${taskId}`);
     if (!task || !inputElement) return;
-
     const newDurationString = inputElement.value;
-     // Allow empty input to represent null/clear the duration
     const newDuration = newDurationString === '' ? null : parseInt(newDurationString, 10);
 
     if (newDurationString === '' || (!isNaN(newDuration) && newDuration >= 0)) {
@@ -934,19 +936,14 @@ function handleSaveDuration(taskId) {
             const oldDuration = task.EstimertVarighetDager;
             task.EstimertVarighetDager = newDuration;
             console.log(`Duration updated for task ${taskId} to ${newDuration === null ? 'null' : newDuration} days.`);
-            // Add notification
             addNotification('system', `Varighet for Oppgave ${task.OppgaveNr} endret fra ${oldDuration === null ? 'N/A' : oldDuration} til ${newDuration === null ? 'N/A' : newDuration} dager av ${currentUser.Navn}.`, currentUser.BrukerID, taskId);
-
-            // Recalculate dates (simplified for PoC)
-            recalculateTaskDates(task);
-
-            // Re-render relevant parts of the UI
-            renderApp(); // Full re-render to update dashboard, lists, etc.
-            showTaskDetail(taskId); // Show updated detail view
+            recalculateTaskDates(task); // Start recalculation from this task
+            renderApp();
+            showTaskDetail(taskId); // Refresh detail view
         }
     } else {
         alert("Vennligst skriv inn et gyldig positivt tall for varighet, eller la feltet stå tomt.");
-        inputElement.value = task.EstimertVarighetDager !== null ? task.EstimertVarighetDager : ''; // Reset to old value
+        inputElement.value = task.EstimertVarighetDager !== null ? task.EstimertVarighetDager : '';
     }
 }
 
@@ -957,22 +954,20 @@ function handleSendMessage() {
      const recipientId = messageRecipientEl.value;
      const subject = messageSubjectEl.value.trim();
      const body = messageBodyEl.value.trim();
-
-      if (!currentUser) {
-         alert("Kan ikke sende melding, ingen bruker er valgt.");
-         return;
-      }
-
-
-     if (!recipientId || !body) {
-         alert('Vennligst velg mottaker og skriv en melding.');
-         return;
-     }
-
+     if (!currentUser) { alert("Kan ikke sende melding, ingen bruker er valgt."); return; }
+     if (!recipientId || !body) { alert('Vennligst velg mottaker og skriv en melding.'); return; }
      addNotification('message', body, currentUser.BrukerID, null, recipientId, subject);
-     newMessageModal.style.display = 'none'; // Hide modal
-     renderMessages(); // Update message list
-     renderNotificationsList(latestNotificationsListEl, 5); // Update dashboard list
+     newMessageModal.style.display = 'none';
+     renderMessages();
+     renderNotificationsList(latestNotificationsListEl, 5);
+}
+
+/**
+ * Attaches event listeners specific to the task detail view elements.
+ */
+function addTaskDetailEventListeners(task) {
+    // Event delegation in handleTaskDetailClicks handles most buttons now.
+    // Only add specific listeners if needed, e.g., for non-button interactions.
 }
 
 // === 5.4: EVENT HANDLERS END ===
@@ -982,84 +977,61 @@ function handleSendMessage() {
 
 /**
  * Updates the status of a task and handles related side effects.
- * @param {string} taskId - The ID of the task to update.
- * @param {string} newStatus - The new status string.
- * @param {object} [options={}] - Additional options (e.g., { godkjent: true }).
  */
 function updateTaskStatus(taskId, newStatus, options = {}) {
     const task = findTaskById(taskId);
     if (!task) return;
-
     const oldStatus = task.Status;
-    // Allow re-completing only if it was rejected or problem resolved back to Pågår
     if (oldStatus === newStatus && newStatus !== 'Utført') return;
 
     console.log(`Updating status for task ${taskId}: ${oldStatus} -> ${newStatus}`);
     task.Status = newStatus;
+    task.JustMadeReady = false; // Clear the "blink" flag on any status change
 
-    // Update timestamps
-    if (newStatus === 'Pågår' && !task.FaktiskStartDato) {
-        task.FaktiskStartDato = new Date();
-    }
-    // Always reset approval and problem when setting to Pågår (e.g., after rejection or problem resolve)
-     if (newStatus === 'Pågår') {
+    if (newStatus === 'Pågår' && !task.FaktiskStartDato) task.FaktiskStartDato = new Date();
+    if (newStatus === 'Pågår') {
         task.GodkjentAvLeder = false;
         task.ProblemBeskrivelse = null;
-     }
-
+    }
     if (newStatus === 'Venter på Godkjenning') {
-         task.GodkjentAvLeder = false; // Ensure it's false, waiting for leader
-         task.ProblemBeskrivelse = null; // Clear problem when completing
+         task.GodkjentAvLeder = false;
+         task.ProblemBeskrivelse = null;
     } else if (newStatus === 'Utført') {
         task.FaktiskSluttDato = new Date();
-        task.GodkjentAvLeder = options.godkjent || task.GodkjentAvLeder; // Set approval flag
-        task.ProblemBeskrivelse = null; // Clear problem when completed
-        // --- Crucial: Check and update successors ---
+        task.GodkjentAvLeder = options.godkjent || task.GodkjentAvLeder;
+        task.ProblemBeskrivelse = null;
         triggerSuccessorUpdate(taskId);
-    } else if (newStatus === 'Problem Rapportert') {
-        // Keep FaktiskStartDato if it exists
     }
 
-    // Recalculate dates if status change affects timing (e.g., completion)
-    recalculateTaskDates(task);
-
-    // Add notification
+    recalculateDependentTaskDates(task);
     addNotification('system', `Status for Oppgave ${task.OppgaveNr} (${task.OppgaveNavn}) endret til '${newStatus}' av ${currentUser.Navn}.`, currentUser.BrukerID, taskId);
-
-
-    // Re-render the application to reflect changes
     renderApp();
 
-    // If the detail view for this task is currently open, refresh it
     if (taskDetailViewEl.classList.contains('active-view')) {
-        const detailTaskId = taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId;
-        if (detailTaskId === taskId) {
-            showTaskDetail(taskId);
-        }
+        const durationInput = taskDetailContentEl.querySelector('input[id^="durationInput_"]');
+        const currentTaskInDetailId = durationInput ? durationInput.id.split('_')[1] : null;
+        if (currentTaskInDetailId === taskId) showTaskDetail(taskId);
     }
 }
 
 /**
  * Checks prerequisites for dependent tasks and updates their status if they can now start.
- * @param {string} completedTaskId - The ID of the task that was just completed.
  */
 function triggerSuccessorUpdate(completedTaskId) {
     console.log(`Task ${completedTaskId} completed, checking successors...`);
     tasks.forEach(task => {
         if (task.ForutsetningerIDs?.includes(completedTaskId)) {
-            // This task depends on the one just completed
-            if (task.Status === 'Ikke startet' || task.Status === 'Venter på forutsetning') {
+            if (task.Status === 'Venter på forutsetning' || task.Status === 'Ikke startet') { // Check both initial states
+                const wasWaiting = task.Status === 'Venter på forutsetning';
                 if (arePrerequisitesMet(task)) {
-                    console.log(`All prerequisites met for task ${task.OppgaveID}. Updating status.`);
-                    // Only update status, don't automatically start it
-                    task.Status = 'Ikke startet';
-                    task.BeregnetStartDato = calculateEarliestStartDate(task); // Update calculated start
-                     addNotification('system', `Forutsetninger for Oppgave ${task.OppgaveNr} (${task.OppgaveNavn}) er nå møtt. Arbeidet kan startes.`, null, task.OppgaveID);
-                      // Recalculate dates for this task as its start date might have changed
-                     recalculateTaskDates(task);
+                    task.Status = 'Ikke startet'; // Mark as ready
+                    task.JustMadeReady = wasWaiting; // Flag for "blink" only if it *was* waiting
+                    task.BeregnetStartDato = calculateEarliestStartDate(task);
+                    addNotification('system', `Oppgave ${task.OppgaveNr} (${task.OppgaveNavn}) er klar til start! Forutsetninger møtt.`, null, task.OppgaveID);
+                    recalculateTaskDates(task);
                 } else {
-                    task.Status = 'Venter på forutsetning'; // Ensure it's waiting if not all are met
-                     console.log(`Prerequisites still not met for task ${task.OppgaveID}.`);
+                     task.Status = 'Venter på forutsetning'; // Keep waiting if other prerequisites remain
+                     task.JustMadeReady = false; // Ensure flag is off
                 }
             }
         }
@@ -1069,216 +1041,205 @@ function triggerSuccessorUpdate(completedTaskId) {
 
 /**
  * Checks if all prerequisites for a given task are met (status is 'Utført').
- * @param {object} task - The task object to check.
- * @returns {boolean} True if all prerequisites are met, false otherwise.
  */
 function arePrerequisitesMet(task) {
-    if (!task.ForutsetningerIDs || task.ForutsetningerIDs.length === 0) {
-        return true; // No prerequisites
-    }
+    if (!task.ForutsetningerIDs || task.ForutsetningerIDs.length === 0) return true;
     return task.ForutsetningerIDs.every(preReqId => {
         const preReqTask = findTaskById(preReqId);
-        // A prerequisite is met if the task exists and its status is 'Utført'
         return preReqTask && preReqTask.Status === 'Utført';
     });
 }
 
 /**
- * Placeholder for recalculating task dates.
- * In PoC, this is simplified: only updates end date based on duration.
- * A full implementation would involve critical path analysis.
- * @param {object} task - The task whose dates might need recalculation.
+ * Recalculates the end date for a task and triggers recalculation for its successors.
  */
 function recalculateTaskDates(task) {
-    // Simplified: Calculate end date based on start and duration
-    let startDate = task.FaktiskStartDato || task.BeregnetStartDato;
+    if (!task) return;
+    console.log(`Recalculating dates for Task ${task.OppgaveNr}`);
+    let changed = false;
+    const oldStartDate = task.BeregnetStartDato;
+    const oldEndDate = task.BeregnetSluttDato;
 
-    if (!startDate) {
-         startDate = calculateEarliestStartDate(task);
-         task.BeregnetStartDato = startDate;
+    const newStartDate = calculateEarliestStartDate(task);
+    if (newStartDate !== null && (!oldStartDate || oldStartDate.getTime() !== newStartDate.getTime())) {
+        task.BeregnetStartDato = newStartDate;
+        changed = true;
+        console.log(`  - Updated Start Date: ${formatDate(task.BeregnetStartDato)}`);
+    } else if (newStartDate === null && oldStartDate !== null) {
+        task.BeregnetStartDato = null; // Clear if cannot be calculated
+        changed = true;
+         console.log(`  - Cleared Start Date`);
     }
 
 
-    if (startDate && task.EstimertVarighetDager !== null) { // Check for null duration explicitly
-        task.BeregnetSluttDato = addWorkDays(startDate, task.EstimertVarighetDager);
-         console.log(`Recalculated end date for ${task.OppgaveID} to ${formatDate(task.BeregnetSluttDato)}`);
+    if (task.BeregnetStartDato && task.EstimertVarighetDager !== null) {
+        const newEndDate = addWorkDays(task.BeregnetStartDato, task.EstimertVarighetDager);
+         if (newEndDate !== null && (!oldEndDate || oldEndDate.getTime() !== newEndDate.getTime())) {
+            task.BeregnetSluttDato = newEndDate;
+            changed = true;
+            console.log(`  - Updated End Date: ${formatDate(task.BeregnetSluttDato)}`);
+        } else if (newEndDate === null && oldEndDate !== null) {
+            task.BeregnetSluttDato = null;
+            changed = true;
+             console.log(`  - Cleared End Date (due to addWorkDays failure)`);
+        }
     } else {
-         task.BeregnetSluttDato = null; // Clear end date if duration or start is missing
+        if (oldEndDate !== null) {
+            task.BeregnetSluttDato = null;
+            changed = true;
+            console.log(`  - Cleared End Date (due to missing start/duration)`);
+        }
     }
 
+    if (changed) recalculateDependentTaskDates(task);
+}
 
-    // --- Propagate changes (Very Simplified PoC) ---
-    const successorTasks = tasks.filter(t => t.ForutsetningerIDs?.includes(task.OppgaveID));
-    successorTasks.forEach(succTask => {
-         const newStartDate = calculateEarliestStartDate(succTask);
-         // Only update if the new calculated start is later than the existing one,
-         // or if the existing one wasn't set. Prevent pulling dates earlier unnecessarily.
-         if (newStartDate && (!succTask.BeregnetStartDato || newStartDate > succTask.BeregnetStartDato)) {
-             succTask.BeregnetStartDato = newStartDate;
-             console.log(`Propagating date change to successor ${succTask.OppgaveID}, new start: ${formatDate(newStartDate)}`);
-             // Recursively recalculate this successor
-             recalculateTaskDates(succTask); // Be mindful of potential infinite loops if circular dependencies exist (should not in this model)
-         } else if (!newStartDate && succTask.BeregnetStartDato) {
-             // If we can no longer calculate a start date (e.g., prerequisite date removed), clear it?
-             // succTask.BeregnetStartDato = null;
-             // recalculateTaskDates(succTask); // Propagate the uncertainty
-         }
-    });
+/**
+ * Recalculates dates for tasks that depend on the provided task.
+ */
+function recalculateDependentTaskDates(prerequisiteTask) {
+    const successorTasks = tasks.filter(t => t.ForutsetningerIDs?.includes(prerequisiteTask.OppgaveID));
+    console.log(`  - Found ${successorTasks.length} successors for Task ${prerequisiteTask.OppgaveNr}. Triggering recalculation...`);
+    successorTasks.forEach(succTask => recalculateTaskDates(succTask));
 }
 
 
 /**
  * Calculates the earliest possible start date for a task based on its prerequisites' completion dates.
- * @param {object} task - The task object.
- * @returns {Date | null} The calculated earliest start date, or null.
  */
  function calculateEarliestStartDate(task) {
     if (!task.ForutsetningerIDs || task.ForutsetningerIDs.length === 0) {
-        // If no prerequisites, use project start date if available
-        return projectData?.project?.StartDato ? new Date(projectData.project.StartDato) : new Date(); // Fallback to today
+        const projectStartDate = projectData?.project?.StartDato ? new Date(projectData.project.StartDato) : new Date();
+        projectStartDate.setHours(0, 0, 0, 0);
+        return projectStartDate;
     }
-
     let latestPrerequisiteEndDate = null;
-    let prerequisitesComplete = true; // Assume complete initially
-
+    let prerequisitesReady = true;
     for (const preReqId of task.ForutsetningerIDs) {
         const preReqTask = findTaskById(preReqId);
         if (preReqTask) {
-            // Use actual end date if available and task is 'Utført', otherwise use calculated end date
-            const endDate = preReqTask.Status === 'Utført'
-                           ? (preReqTask.FaktiskSluttDato || preReqTask.BeregnetSluttDato)
-                           : preReqTask.BeregnetSluttDato;
-
-            if (preReqTask.Status !== 'Utført') {
-                prerequisitesComplete = false; // Mark as not ready if any prerequisite is not 'Utført'
-            }
-
-
-            if (endDate) {
-                if (!latestPrerequisiteEndDate || endDate > latestPrerequisiteEndDate) {
-                    latestPrerequisiteEndDate = endDate;
-                }
-            } else {
-                // If a prerequisite has no end date, we can't calculate accurately.
-                return null; // Cannot determine start date if any prerequisite end date is unknown
-            }
-        } else {
-            console.warn(`Prerequisite task ${preReqId} not found for task ${task.OppgaveID}`);
-            return null; // Cannot determine start date if prerequisite task is missing
-        }
+            if (preReqTask.Status !== 'Utført') prerequisitesReady = false;
+            const endDate = preReqTask.FaktiskSluttDato || preReqTask.BeregnetSluttDato;
+            if (endDate && endDate instanceof Date && !isNaN(endDate)) {
+                if (!latestPrerequisiteEndDate || endDate > latestPrerequisiteEndDate) latestPrerequisiteEndDate = endDate;
+            } else { return null; } // Cannot calculate if prerequisite end date is missing
+        } else { return null; } // Cannot calculate if prerequisite task is missing
     }
-
-
-     // Only return a date if all prerequisites are actually marked 'Utført'
-    if (latestPrerequisiteEndDate && prerequisitesComplete) {
+    if (latestPrerequisiteEndDate) {
         const nextDay = new Date(latestPrerequisiteEndDate);
-        nextDay.setDate(nextDay.getDate() + 1); // Simple +1 day. Could be smarter about workdays.
-        // Ensure the calculated start date is not in the past relative to today? Optional.
-        // const today = new Date(); today.setHours(0,0,0,0);
-        // return nextDay < today ? today : nextDay;
-        return nextDay;
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDay.setHours(0, 0, 0, 0);
+        const projectStartDate = projectData?.project?.StartDato ? new Date(projectData.project.StartDato) : new Date(1970, 0, 1);
+        projectStartDate.setHours(0, 0, 0, 0);
+        return nextDay > projectStartDate ? nextDay : projectStartDate;
     }
-
-
-    return null; // Cannot determine start date if prerequisites aren't complete or dates missing
+    return null;
 }
-
 
 /**
  * Simulates reporting a problem for a task.
- * @param {string} taskId - The ID of the task.
  */
 function reportProblem(taskId) {
     const task = findTaskById(taskId);
-     if (!task || task.Status === 'Utført' || !currentUser) return;
-
-
+    if (!task || task.Status === 'Utført' || !currentUser) return;
     const reason = prompt(`Beskriv problemet for oppgave ${task.OppgaveNr} (${task.OppgaveNavn}):`, task.ProblemBeskrivelse || '');
-    if (reason !== null) { // Handle cancel button
-        task.ProblemBeskrivelse = reason.trim() || "Problem rapportert uten beskrivelse"; // Store reason
+    if (reason !== null) {
+        task.ProblemBeskrivelse = reason.trim() || "Problem rapportert";
         updateTaskStatus(taskId, 'Problem Rapportert');
-         addNotification('system', `Problem rapportert for Oppgave ${task.OppgaveNr} av ${currentUser.Navn}: "${task.ProblemBeskrivelse}"`, currentUser.BrukerID, taskId);
+        addNotification('system', `Problem rapportert for Oppgave ${task.OppgaveNr} av ${currentUser.Navn}: "${task.ProblemBeskrivelse}"`, currentUser.BrukerID, taskId);
     }
 }
 
 /**
  * Simulates resolving a problem for a task (Project Leader action).
- * @param {string} taskId - The ID of the task.
  */
 function resolveProblem(taskId) {
     const task = findTaskById(taskId);
-     if (!task || task.Status !== 'Problem Rapportert' || !currentUser) return;
-
-
-    // Determine previous state or a sensible state to return to
-    let statusBeforeProblem = 'Pågår'; // Default to ongoing
+    if (!task || task.Status !== 'Problem Rapportert' || !currentUser) return;
+    let statusBeforeProblem = 'Pågår';
     if (task.FaktiskStartDato === null) {
-         if (arePrerequisitesMet(task)) {
-             statusBeforeProblem = 'Ikke startet';
-         } else {
-            statusBeforeProblem = 'Venter på forutsetning';
-         }
+         statusBeforeProblem = arePrerequisitesMet(task) ? 'Ikke startet' : 'Venter på forutsetning';
     }
-
-
-    task.ProblemBeskrivelse = null; // Clear the problem description
+    task.ProblemBeskrivelse = null;
     updateTaskStatus(taskId, statusBeforeProblem);
     addNotification('system', `Problem for Oppgave ${task.OppgaveNr} markert som løst av ${currentUser.Navn}. Status satt til '${statusBeforeProblem}'.`, currentUser.BrukerID, taskId);
 }
 
 /**
  * Admin action to mark a task as fully complete, bypassing normal workflow.
- * @param {string} taskId - The ID of the task.
  */
  function adminMarkTaskComplete(taskId) {
     const task = findTaskById(taskId);
-     if (!task || !currentUser || !currentUser.RolleIDs.includes('ROLLE-PL')) return;
-
-
+    if (!task || !currentUser || !currentUser.RolleIDs.includes('ROLLE-PL')) return;
     console.log(`Admin marking task ${taskId} as complete.`);
-    const oldStatus = task.Status;
-
-    // Set necessary fields as if it went through the process
-    if (!task.FaktiskStartDato) task.FaktiskStartDato = new Date(); // Assume it started now if not started
-    task.FaktiskSluttDato = new Date();
+    if (!task.FaktiskStartDato) task.FaktiskStartDato = new Date();
+    if (!task.FaktiskSluttDato) task.FaktiskSluttDato = new Date();
     task.Status = 'Utført';
     task.GodkjentAvLeder = true;
     task.ProblemBeskrivelse = null;
-
     addNotification('system', `Oppgave ${task.OppgaveNr} hurtigfullført av Admin (${currentUser.Navn}).`, currentUser.BrukerID, taskId);
-
-    // Trigger updates for successors
     triggerSuccessorUpdate(taskId);
-
-    // Recalculate dates
-    recalculateTaskDates(task);
-
-    // Re-render
+    recalculateDependentTaskDates(task);
     renderApp();
-     // If the detail view for this task is currently open, refresh it
     if (taskDetailViewEl.classList.contains('active-view')) {
-        const detailTaskId = taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId;
-        if (detailTaskId === taskId) {
-            showTaskDetail(taskId);
-        }
+        const durationInput = taskDetailContentEl.querySelector('input[id^="durationInput_"]');
+        const currentTaskInDetailId = durationInput ? durationInput.id.split('_')[1] : null;
+        if (currentTaskInDetailId === taskId) showTaskDetail(taskId);
     }
 }
 
-
 /**
  * Determines if the current user can edit the duration of a task.
- * @param {object} task - The task object.
- * @returns {boolean}
  */
 function canEditDuration(task) {
-     // Add null check for currentUser
     if (!currentUser) return false;
-
-    // Allow editing if the user is responsible OR is the project leader,
-    // AND the task is not yet completed.
     const isProjectLeader = currentUser.RolleIDs.includes('ROLLE-PL');
     const isResponsibleUser = currentUser.RolleIDs.includes(task.AnsvarligRolleID);
     return (isProjectLeader || isResponsibleUser) && task.Status !== 'Utført';
+}
+
+/**
+ * Gets a list of pending actions for a specific user.
+ * @param {object} user - The user object.
+ * @returns {Array<object>} - Array of action objects { type: string, task: object }.
+ */
+ function getPendingActionsForUser(user) {
+    if (!user) return [];
+    const actions = [];
+    const isProjectLeader = user.RolleIDs.includes('ROLLE-PL');
+
+    tasks.forEach(task => {
+        const isResponsible = user.RolleIDs.includes(task.AnsvarligRolleID);
+
+        // Action: Start Task
+        if (isResponsible && task.Status === 'Ikke startet' && arePrerequisitesMet(task)) {
+            actions.push({ type: 'Start Oppgave', task: task });
+        }
+
+        // Action: Approve Task
+        if (isProjectLeader && task.Status === 'Venter på Godkjenning') {
+            actions.push({ type: 'Godkjenn Oppgave', task: task });
+        }
+
+        // Action: Resolve Problem
+        if (isProjectLeader && task.Status === 'Problem Rapportert') {
+             actions.push({ type: 'Løs Problem', task: task });
+        }
+         // Action: Report Problem (Maybe less of a pending action, more of a possible action?)
+         // We can add it if needed, but the button exists in the detail view.
+    });
+
+     // Sort actions (e.g., approvals/problems first, then tasks to start)
+     actions.sort((a, b) => {
+        const typeOrder = {
+            "Løs Problem": 1,
+            "Godkjenn Oppgave": 2,
+            "Start Oppgave": 3
+        };
+        return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99);
+     });
+
+    return actions;
 }
 
 
@@ -1289,18 +1250,14 @@ function canEditDuration(task) {
 
 /**
  * Finds a task object by its ID.
- * @param {string} taskId - The ID of the task.
- * @returns {object | undefined} The task object or undefined if not found.
  */
 function findTaskById(taskId) {
-     if (!tasks) return undefined; // Guard against tasks not being loaded yet
+     if (!tasks) return undefined;
     return tasks.find(task => task.OppgaveID === taskId);
 }
 
 /**
  * Finds a user object by its ID.
- * @param {string} userId - The ID of the user.
- * @returns {object | undefined} The user object or undefined if not found.
  */
 function findUserById(userId) {
     if (!users) return undefined;
@@ -1309,8 +1266,6 @@ function findUserById(userId) {
 
 /**
  * Finds a role object by its ID.
- * @param {string} roleId - The ID of the role.
- * @returns {object | undefined} The role object or undefined if not found.
  */
 function getRoleById(roleId) {
     if (!roles) return undefined;
@@ -1319,8 +1274,6 @@ function getRoleById(roleId) {
 
 /**
  * Finds all users associated with a given role ID.
- * @param {string} roleId - The ID of the role.
- * @returns {Array<object>} An array of user objects.
  */
 function findUsersByRole(roleId) {
     if (!users) return [];
@@ -1330,78 +1283,56 @@ function findUsersByRole(roleId) {
 
 /**
  * Gets all role objects associated with a given user.
- * @param {object} user - The user object.
- * @returns {Array<object>} An array of role objects.
  */
  function getRolesForUser(user) {
      if (!user || !user.RolleIDs || !roles) return [];
-     return user.RolleIDs.map(roleId => getRoleById(roleId)).filter(role => role); // Find roles based on IDs and filter out nulls
+     return user.RolleIDs.map(roleId => getRoleById(roleId)).filter(role => role);
  }
 
 
 /**
  * Formats a Date object into a readable string (DD.MM.YYYY).
- * Includes time if includeTime is true.
- * @param {Date | null} date - The date object to format.
- * @param {boolean} includeTime - Whether to include HH:MM.
- * @returns {string} Formatted date string or 'N/A'.
  */
 function formatDate(date, includeTime = false) {
-    if (!date || !(date instanceof Date) || isNaN(date)) {
-        return 'N/A';
-    }
+    if (!date || !(date instanceof Date) || isNaN(date)) return 'N/A';
     try {
         const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+        const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
         let formatted = `${day}.${month}.${year}`;
-
         if (includeTime) {
              const hours = String(date.getHours()).padStart(2, '0');
              const minutes = String(date.getMinutes()).padStart(2, '0');
              formatted += ` ${hours}:${minutes}`;
         }
         return formatted;
-     } catch (e) {
-        console.error("Error formatting date:", date, e);
-        return 'Feil dato';
-    }
+     } catch (e) { console.error("Error formatting date:", date, e); return 'Feil dato'; }
 }
 
 /**
- * Adds a number of work days (Mon-Fri) to a date. Very basic implementation.
- * @param {Date} startDate - The starting date.
- * @param {number} days - The number of work days to add.
- * @returns {Date} The resulting date.
+ * Adds a number of work days (Mon-Fri) to a date.
  */
 function addWorkDays(startDate, days) {
     if (!startDate || !(startDate instanceof Date) || isNaN(startDate) || days === null || isNaN(days) || days < 0) {
-         console.warn("Invalid input to addWorkDays:", startDate, days);
-         // Decide on fallback: return original date, null, or throw error?
-         return null; // Returning null might be safer than returning original date
+         console.warn("Invalid input to addWorkDays:", startDate, days); return null;
     }
     let currentDate = new Date(startDate);
     let addedDays = 0;
-    let safetyCounter = 0; // Prevent infinite loops with bad input/logic
-    while (addedDays < days && safetyCounter < (days * 3 + 10)) { // Generous safety limit
+    let safetyCounter = 0;
+    while (addedDays < days && safetyCounter < (days * 3 + 100)) {
         currentDate.setDate(currentDate.getDate() + 1);
-        const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-            addedDays++;
-        }
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) addedDays++;
         safetyCounter++;
     }
-     if (safetyCounter >= (days * 3 + 10)) {
-        console.error("addWorkDays safety counter triggered for:", startDate, days);
-        return null; // Return null if loop seems infinite
-    }
+    if (safetyCounter >= (days * 3 + 100)) { console.error("addWorkDays safety counter triggered"); return null; }
+     currentDate.setHours(0,0,0,0);
     return currentDate;
 }
 
 
 /**
- * Calculates the overall project progress percentage (simple version).
- * @returns {number} Progress percentage (0-100).
+ * Calculates the overall project progress percentage.
  */
 function calculateProjectProgress() {
     if (!tasks || tasks.length === 0) return 0;
@@ -1411,21 +1342,14 @@ function calculateProjectProgress() {
 
 /**
  * Calculates a rough project Estimated Time of Arrival (ETA).
- * Finds the latest 'BeregnetSluttDato' among all tasks.
- * @returns {string} Formatted ETA date string or 'Ukjent'.
  */
 function calculateProjectEta() {
-     if (!tasks || tasks.length === 0) return 'Ukjent'; // Handle no tasks case
-
+     if (!tasks || tasks.length === 0) return 'Ukjent';
     let latestEndDate = null;
     tasks.forEach(task => {
-        // Consider both calculated and actual end dates if actual is later?
-        // For ETA based on plan, BeregnetSluttDato is usually preferred.
         const endDate = task.BeregnetSluttDato;
-        if (endDate && endDate instanceof Date && !isNaN(endDate)) { // Check if valid Date
-            if (!latestEndDate || endDate > latestEndDate) {
-                latestEndDate = endDate;
-            }
+        if (endDate && endDate instanceof Date && !isNaN(endDate)) {
+            if (!latestEndDate || endDate > latestEndDate) latestEndDate = endDate;
         }
     });
     return latestEndDate ? formatDate(latestEndDate) : 'Ukjent';
@@ -1433,35 +1357,15 @@ function calculateProjectEta() {
 
 /**
  * Adds a notification/message to the global list.
- * @param {'system' | 'message'} type - The type of notification.
- * @param {string} body - The message content.
- * @param {string | null} senderId - BrukerID of the sender (null for system).
- * @param {string | null} taskId - OppgaveID if related to a task.
- * @param {string | null} recipientId - BrukerID of the recipient (for messages).
- * @param {string | null} subject - Subject line (for messages).
  */
 function addNotification(type, body, senderId = null, taskId = null, recipientId = null, subject = null) {
     const notification = {
-        id: `notif-${Date.now()}-${Math.random()}`, // Simple unique ID
-        type: type, // 'system' or 'message'
-        body: body,
-        senderId: senderId,
-        recipientId: recipientId, // Only for messages
-        subject: subject,       // Only for messages
-        taskId: taskId,         // Link to task if relevant
-        timestamp: new Date(),
-        read: false // Not really used in PoC display
+        id: `notif-${Date.now()}-${Math.random()}`, type, body, senderId, recipientId, subject, taskId, timestamp: new Date(), read: false
     };
     notifications.push(notification);
     console.log("Notification added:", notification);
-
-    // Update notification displays immediately if the relevant lists exist
-    if (latestNotificationsListEl) {
-         renderNotificationsList(latestNotificationsListEl, 5); // Update dashboard list
-    }
-     if (messageListContainerEl && currentView === 'messages') {
-         renderMessages(); // Update full message list if active
-     }
+    if (latestNotificationsListEl) renderNotificationsList(latestNotificationsListEl, 5);
+    if (messageListContainerEl && currentView === 'messages') renderMessages();
 }
 
 
@@ -1472,31 +1376,23 @@ function addNotification(type, body, senderId = null, taskId = null, recipientId
 
 /**
  * Switches the active view displayed in the main content area.
- * @param {string} viewId - The ID of the view div to activate.
  */
 function switchView(viewId) {
     console.log("Switching view to:", viewId);
-    // Hide all views
-    document.querySelectorAll('.view').forEach(view => {
-        view.classList.remove('active-view');
-    });
-    // Show the target view
+    document.querySelectorAll('.view').forEach(view => view.classList.remove('active-view'));
     const targetView = document.getElementById(viewId);
     if (targetView) {
         targetView.classList.add('active-view');
-        currentView = viewId; // Update global state
+        currentView = viewId;
     } else {
         console.error(`View with ID ${viewId} not found! Falling back to dashboard.`);
-        // Fallback to dashboard
         const dashboardView = document.getElementById('dashboard');
         if (dashboardView) {
             dashboardView.classList.add('active-view');
             currentView = 'dashboard';
         } else {
-             // Absolute fallback if even dashboard is missing
              appContent.innerHTML = `<p style="color: red; padding: 20px;">FEIL: Finner ingen visninger!</p>`;
         }
-
     }
 }
 
@@ -1505,11 +1401,7 @@ function switchView(viewId) {
  */
 function updateActiveNavButton() {
     navButtons.forEach(button => {
-        if (button.dataset.targetView === currentView) {
-            button.classList.add('active');
-        } else {
-            button.classList.remove('active');
-        }
+        button.classList.toggle('active', button.dataset.targetView === currentView);
     });
 }
 
@@ -1521,5 +1413,17 @@ function updateActiveNavButton() {
 document.addEventListener('DOMContentLoaded', init);
 // === 5.8: APPLICATION STARTUP END ===
 
+// === 5.9: CSS Blinking Animation START ===
+// Inject CSS animation rule for the blinking effect
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = `
+@keyframes blinkBackground {
+  0%, 100% { background-color: inherit; } /* Start/end with normal background */
+  50% { background-color: var(--status-waiting); } /* Blink color */
+}
+`;
+document.head.appendChild(styleSheet);
+// === 5.9: CSS Blinking Animation END ===
 
 // === 5: MAIN APPLICATION SCRIPT END ===
