@@ -43,7 +43,19 @@ const messageListContainerEl = document.getElementById('messageListContainer');
 
 // === 5.2: INITIALIZATION FUNCTIONS START ===
 /**
- * Fetches data from JSON files.
+ * Helper function to remove single-line comments (//) from a JSON string.
+ * @param {string} jsonString - The raw string content from the file.
+ * @returns {string} - The JSON string with comments removed.
+ */
+function removeJsonComments(jsonString) {
+    // Split into lines, filter out comment lines, join back
+    return jsonString.split('\n')
+        .filter(line => !line.trim().startsWith('//'))
+        .join('\n');
+}
+
+/**
+ * Fetches data from JSON files, handling potential comments.
  */
 async function loadData() {
     try {
@@ -51,21 +63,47 @@ async function loadData() {
             fetch('project_data.json'),
             fetch('users_roles.json')
         ]);
+
         if (!projectResponse.ok || !userResponse.ok) {
-            throw new Error('Network response was not ok');
+            // Display specific error messages if fetch failed
+            let errorMsg = 'Kunne ikke laste prosjektdata. ';
+            if (!projectResponse.ok) {
+                 errorMsg += `Feil ved henting av project_data.json (Status: ${projectResponse.status}). `;
+            }
+            if (!userResponse.ok) {
+                 errorMsg += `Feil ved henting av users_roles.json (Status: ${userResponse.status}).`;
+            }
+            throw new Error(errorMsg);
         }
-        projectData = await projectResponse.json();
-        userData = await userResponse.json();
-        console.log("Data loaded successfully:", { projectData, userData });
+
+        // Get text content first
+        const projectText = await projectResponse.text();
+        const userText = await userResponse.text();
+
+        // Remove comments and then parse
+        projectData = JSON.parse(removeJsonComments(projectText));
+        userData = JSON.parse(removeJsonComments(userText));
+
+        console.log("Data loaded and parsed successfully:", { projectData, userData });
 
         // Process data after loading
         processLoadedData();
 
     } catch (error) {
-        console.error('Error loading data:', error);
-        appContent.innerHTML = `<p style="color: red;">Kunne ikke laste prosjektdata. Sjekk at JSON-filene er tilgjengelige og korrekt formatert.</p>`;
+        console.error('Error loading or parsing data:', error);
+        // Display a more user-friendly error message
+        let displayError = 'Kunne ikke laste prosjektdata. ';
+        if (error instanceof SyntaxError) {
+            displayError += 'Det er en feil i formatet til en av JSON-filene (etter fjerning av kommentarer). Sjekk konsollen for detaljer.';
+        } else {
+            displayError += ` (${error.message}). Sjekk at filene er tilgjengelige og korrekt formatert.`;
+        }
+         appContent.innerHTML = `<p style="color: red; padding: 20px;">${displayError}</p>`;
+         // Optionally hide the loading indicator in the user select dropdown
+         userSelect.innerHTML = '<option value="">Feil ved lasting</option>';
     }
 }
+
 
 /**
  * Processes the raw data loaded from JSON into usable arrays and objects.
@@ -106,8 +144,11 @@ function processLoadedData() {
  * Populates the global user selector dropdown.
  */
 function populateUserSelector() {
-    if (!users || users.length === 0) return;
-    userSelect.innerHTML = ''; // Clear existing options
+    if (!users || users.length === 0) {
+         userSelect.innerHTML = '<option value="">Ingen brukere</option>'; // Handle case with no users
+        return;
+    }
+    userSelect.innerHTML = ''; // Clear existing options ("Laster brukere...")
     users.forEach(user => {
         const option = document.createElement('option');
         option.value = user.BrukerID;
@@ -160,6 +201,9 @@ async function init() {
     await loadData(); // Load data first
     if (projectData && userData) { // Ensure data is loaded before rendering
         renderApp(); // Initial render
+    } else {
+         console.log("Initialization halted due to data loading failure.");
+         // Error message is already displayed by loadData() in case of failure
     }
 }
 // === 5.2: INITIALIZATION FUNCTIONS END ===
@@ -171,10 +215,22 @@ async function init() {
  * Main render function to update the entire UI based on current state.
  */
 function renderApp() {
+    // Added check: Do not proceed if data is missing
     if (!projectData || !userData || !currentUser) {
-        console.log("Waiting for data or user selection...");
-        return; // Don't render if data or user isn't ready
+        console.log("Render blocked: Missing data or currentUser.");
+        // Ensure the error message remains visible if needed
+        if (!document.querySelector('#appContent p[style*="color: red;"]')) {
+             appContent.innerHTML = '<p style="color: orange; padding: 20px;">Kan ikke vise data. Prøv å laste siden på nytt.</p>';
+        }
+        return; // Stop rendering
     }
+     // Clear potential error messages if rendering proceeds
+    const errorMsgElement = document.querySelector('#appContent p[style*="color: red;"], #appContent p[style*="color: orange;"]');
+    if (errorMsgElement) {
+        errorMsgElement.remove();
+    }
+
+
     console.log(`Rendering app for user: ${currentUser.Navn}, view: ${currentView}`);
 
     // Update all views, even hidden ones, so data is ready when switching
@@ -197,6 +253,7 @@ function renderApp() {
  * Renders the dashboard view.
  */
 function renderDashboard() {
+    if (!projectData) return; // Guard against missing data
     // Project Status & ETA
     projectStatusEl.textContent = projectData.project.Status; // Simple status for now
     projectEtaEl.textContent = calculateProjectEta(); // Calculate rough ETA
@@ -268,8 +325,6 @@ function renderMyTasksList() {
         const taskRole = getRoleById(task.AnsvarligRolleID);
         if (!taskRole) return false;
         // Check if any of the current user's roles match the task's responsible role ID
-        // This handles cases where a user has multiple roles (e.g., Tømrer/Fasade and Tømrer/Innredning)
-        // and also the combined roles defined in users_roles.json
         return currentUser.RolleIDs.includes(task.AnsvarligRolleID);
     });
 
@@ -316,7 +371,7 @@ function createTaskElement(task, isAdminView) {
     taskElement.dataset.status = task.Status; // Used for CSS styling
 
     const responsibleRole = getRoleById(task.AnsvarligRolleID);
-    const durationText = task.EstimertVarighetDager ? `${task.EstimertVarighetDager} dager` : 'Ikke estimert';
+    const durationText = task.EstimertVarighetDager !== null ? `${task.EstimertVarighetDager} dager` : 'Ikke estimert'; // Show 0 days
 
     taskElement.innerHTML = `
         <h4>${task.OppgaveNr}. ${task.OppgaveNavn}</h4>
@@ -359,6 +414,13 @@ function createTaskElement(task, isAdminView) {
 function showTaskDetail(taskId) {
     const task = findTaskById(taskId);
     if (!task) return;
+
+    // Ensure the main app container doesn't show an error message
+     const errorMsgElement = document.querySelector('#appContent p[style*="color: red;"], #appContent p[style*="color: orange;"]');
+    if (errorMsgElement) {
+        errorMsgElement.remove();
+    }
+
 
     currentView = 'taskDetail'; // Set internal state, but don't call switchView yet
     taskDetailViewEl.classList.add('active-view'); // Show the detail view container
@@ -416,7 +478,7 @@ function showTaskDetail(taskId) {
         ${task.Status === 'Venter på Godkjenning' ? `<p style="color:var(--status-pending-approval)"><strong>Venter på godkjenning fra Prosjektleder.</strong></p>` : ''}
 
         <p><strong>Estimert Varighet:</strong>
-           <input type="number" id="durationInput_${task.OppgaveID}" value="${task.EstimertVarighetDager || ''}" min="0" step="1" ${canEditDuration(task) ? '' : 'disabled'} style="width: 60px; margin-left: 5px;"> dager
+           <input type="number" id="durationInput_${task.OppgaveID}" value="${task.EstimertVarighetDager !== null ? task.EstimertVarighetDager : ''}" min="0" step="1" ${canEditDuration(task) ? '' : 'disabled'} style="width: 60px; margin-left: 5px;"> dager
            ${canEditDuration(task) ? `<button class="save-duration-button" data-task-id="${task.OppgaveID}">Lagre</button>` : ''}
         </p>
         <p><strong>Beregnet Start:</strong> ${formatDate(task.BeregnetStartDato)}</p>
@@ -649,6 +711,9 @@ function renderNotificationsList(targetListElement, maxItems = null) {
  */
 function generateActionButtons(task) {
     let buttonsHtml = '';
+     // Add null check for currentUser
+    if (!currentUser) return buttonsHtml;
+
     const isProjectLeader = currentUser.RolleIDs.includes('ROLLE-PL');
     const isResponsibleUser = currentUser.RolleIDs.includes(task.AnsvarligRolleID);
 
@@ -707,6 +772,8 @@ function setupEventListeners() {
     backToListButton.addEventListener('click', () => {
         // Determine which list view was active before showing detail?
         // For simplicity in PoC, always go back to 'Alle Oppgaver' or 'Mine Oppgaver' based on user.
+         if (!currentUser) return; // Add guard clause
+
         const prevView = currentUser.RolleIDs.includes('ROLLE-PL') ? 'taskList' : 'myTasks';
         switchView(prevView); // Go back to a list view
         renderApp(); // Re-render to ensure lists are updated
@@ -737,8 +804,12 @@ function setupEventListeners() {
  * @param {Event} event - The click event.
  */
 function handleTaskDetailClicks(event) {
+     if (!currentUser) return; // Add guard clause
+
     const target = event.target;
     const taskId = target.dataset.taskId;
+    const currentTaskInDetail = findTaskById(taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId); // Find current task ID reliably
+
 
     // Button clicks
     if (target.classList.contains('start-task-button') && taskId) {
@@ -748,7 +819,6 @@ function handleTaskDetailClicks(event) {
     } else if (target.classList.contains('approve-button') && taskId) {
         updateTaskStatus(taskId, 'Utført', { godkjent: true });
     } else if (target.classList.contains('reject-button') && taskId) {
-        // Reject: Send back to 'Pågår' and maybe add a note?
         updateTaskStatus(taskId, 'Pågår');
         addNotification('system', `Oppgave ${findTaskById(taskId)?.OppgaveNr} ble avvist av leder og satt tilbake til 'Pågår'.`, null, taskId);
     } else if (target.classList.contains('problem-button') && taskId) {
@@ -758,30 +828,25 @@ function handleTaskDetailClicks(event) {
     } else if (target.classList.contains('save-duration-button') && taskId) {
         handleSaveDuration(taskId);
     } else if (target.id === 'addTaskCommentButton') {
-         // Handle adding task comment/note (simulate)
          const commentInput = document.getElementById('taskCommentInput');
-         if (commentInput && commentInput.value.trim() !== '') {
-            const currentTaskId = taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId; // Find current task ID
-             if(currentTaskId) {
-                 addNotification('system', `Notat lagt til Oppgave ${findTaskById(currentTaskId)?.OppgaveNr}: "${commentInput.value.trim()}"`, currentUser.BrukerID, currentTaskId);
-                 commentInput.value = '';
-                 renderMessages(); // Re-render message lists to show new note
-             }
+         if (commentInput && commentInput.value.trim() !== '' && currentTaskInDetail) {
+             addNotification('system', `Notat lagt til Oppgave ${currentTaskInDetail.OppgaveNr}: "${commentInput.value.trim()}"`, currentUser.BrukerID, currentTaskInDetail.OppgaveID);
+             commentInput.value = '';
+             // Re-render messages? Or add dynamically? For now, rely on next full render.
+             // Maybe re-render just the message part of the detail view?
+             renderMessages(); // Re-render main message list and dashboard notification list
          }
     }
      // Clickable user spans for role switching
      else if (target.classList.contains('clickable-user') && target.dataset.userId) {
         const userIdToSwitch = target.dataset.userId;
         const userToSwitch = findUserById(userIdToSwitch);
-        if (userToSwitch) {
+        if (userToSwitch && currentTaskInDetail) {
             currentUser = userToSwitch;
             userSelect.value = currentUser.BrukerID; // Update global selector
             // Re-render the task detail view immediately with the new user's perspective
-            showTaskDetail(findTaskById(document.querySelector('#taskDetail .save-duration-button')?.dataset.taskId).OppgaveID);
-            // Note: We might want a full app re-render depending on desired behavior.
-            // For now, just re-rendering the detail view for immediate feedback.
-             addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null); // Notify about user switch
-
+            showTaskDetail(currentTaskInDetail.OppgaveID); // Use the reliably found task ID
+            addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null); // Notify about user switch
         }
     }
 }
@@ -793,6 +858,11 @@ function handleTaskDetailClicks(event) {
 function handleUserChange() {
     const selectedUserId = userSelect.value;
     currentUser = findUserById(selectedUserId);
+     if (!currentUser) {
+        console.error("Selected user not found!");
+        return; // Prevent further errors
+    }
+
     console.log("User changed to:", currentUser.Navn);
     addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null);
     // Determine default view based on role
@@ -806,15 +876,15 @@ function handleUserChange() {
 function handleTaskDetailUserChange(event) {
     const selectedUserId = event.target.value; // Get value from the task detail select
     const userToSwitch = findUserById(selectedUserId);
-     const currentTaskId = taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId; // Find current task ID
+    const currentTaskInDetail = findTaskById(taskDetailViewEl.querySelector('.save-duration-button')?.dataset.taskId); // Find current task ID
 
-    if (userToSwitch && currentTaskId) {
+    if (userToSwitch && currentTaskInDetail) {
         currentUser = userToSwitch;
         userSelect.value = currentUser.BrukerID; // Update global selector as well for consistency
 
         // Re-render the task detail view for the new user
-        showTaskDetail(currentTaskId);
-         addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null); // Notify about user switch
+        showTaskDetail(currentTaskInDetail.OppgaveID);
+        addNotification('system', `Visning byttet til bruker: ${currentUser.Navn}`, null); // Notify about user switch
     }
 }
 
@@ -826,11 +896,22 @@ function handleNavClick(event) {
     const targetView = event.target.dataset.targetView;
     if (targetView) {
         currentView = targetView;
-        switchView(targetView);
-        updateActiveNavButton();
-        // Optionally, re-render specific views if needed upon navigation
-        if (targetView === 'messages') {
-             renderMessages(); // Ensure full message list is rendered
+        // Ensure data is present before switching/rendering
+        if (projectData && userData) {
+            switchView(targetView);
+            updateActiveNavButton();
+            // Optionally, re-render specific views if needed upon navigation
+            if (targetView === 'messages') {
+                renderMessages(); // Ensure full message list is rendered
+            }
+        } else {
+            // Handle case where user clicks nav before data is loaded
+            console.warn("Navigation attempt before data is loaded.");
+             // Maybe show the error message if it exists?
+            const errorMsgElement = document.querySelector('#appContent p[style*="color: red;"], #appContent p[style*="color: orange;"]');
+             if (!errorMsgElement) {
+                appContent.innerHTML = '<p style="color: orange; padding: 20px;">Data lastes fortsatt eller en feil har oppstått. Prøv igjen om et øyeblikk.</p>';
+             }
         }
     }
 }
@@ -844,14 +925,17 @@ function handleSaveDuration(taskId) {
     const inputElement = document.getElementById(`durationInput_${taskId}`);
     if (!task || !inputElement) return;
 
-    const newDuration = parseInt(inputElement.value, 10);
-    if (!isNaN(newDuration) && newDuration >= 0) {
+    const newDurationString = inputElement.value;
+     // Allow empty input to represent null/clear the duration
+    const newDuration = newDurationString === '' ? null : parseInt(newDurationString, 10);
+
+    if (newDurationString === '' || (!isNaN(newDuration) && newDuration >= 0)) {
         if (task.EstimertVarighetDager !== newDuration) {
             const oldDuration = task.EstimertVarighetDager;
             task.EstimertVarighetDager = newDuration;
-            console.log(`Duration updated for task ${taskId} to ${newDuration} days.`);
+            console.log(`Duration updated for task ${taskId} to ${newDuration === null ? 'null' : newDuration} days.`);
             // Add notification
-            addNotification('system', `Varighet for Oppgave ${task.OppgaveNr} endret fra ${oldDuration || 'N/A'} til ${newDuration} dager av ${currentUser.Navn}.`, currentUser.BrukerID, taskId);
+            addNotification('system', `Varighet for Oppgave ${task.OppgaveNr} endret fra ${oldDuration === null ? 'N/A' : oldDuration} til ${newDuration === null ? 'N/A' : newDuration} dager av ${currentUser.Navn}.`, currentUser.BrukerID, taskId);
 
             // Recalculate dates (simplified for PoC)
             recalculateTaskDates(task);
@@ -861,8 +945,8 @@ function handleSaveDuration(taskId) {
             showTaskDetail(taskId); // Show updated detail view
         }
     } else {
-        alert("Vennligst skriv inn et gyldig positivt tall for varighet.");
-        inputElement.value = task.EstimertVarighetDager || ''; // Reset to old value
+        alert("Vennligst skriv inn et gyldig positivt tall for varighet, eller la feltet stå tomt.");
+        inputElement.value = task.EstimertVarighetDager !== null ? task.EstimertVarighetDager : ''; // Reset to old value
     }
 }
 
@@ -874,6 +958,12 @@ function handleSendMessage() {
      const subject = messageSubjectEl.value.trim();
      const body = messageBodyEl.value.trim();
 
+      if (!currentUser) {
+         alert("Kan ikke sende melding, ingen bruker er valgt.");
+         return;
+      }
+
+
      if (!recipientId || !body) {
          alert('Vennligst velg mottaker og skriv en melding.');
          return;
@@ -882,9 +972,7 @@ function handleSendMessage() {
      addNotification('message', body, currentUser.BrukerID, null, recipientId, subject);
      newMessageModal.style.display = 'none'; // Hide modal
      renderMessages(); // Update message list
-     // Switch to message view? Optional.
-     // switchView('messages');
-     // updateActiveNavButton();
+     renderNotificationsList(latestNotificationsListEl, 5); // Update dashboard list
 }
 
 // === 5.4: EVENT HANDLERS END ===
@@ -903,7 +991,8 @@ function updateTaskStatus(taskId, newStatus, options = {}) {
     if (!task) return;
 
     const oldStatus = task.Status;
-    if (oldStatus === newStatus && newStatus !== 'Utført') return; // No change unless marking completed again
+    // Allow re-completing only if it was rejected or problem resolved back to Pågår
+    if (oldStatus === newStatus && newStatus !== 'Utført') return;
 
     console.log(`Updating status for task ${taskId}: ${oldStatus} -> ${newStatus}`);
     task.Status = newStatus;
@@ -911,10 +1000,14 @@ function updateTaskStatus(taskId, newStatus, options = {}) {
     // Update timestamps
     if (newStatus === 'Pågår' && !task.FaktiskStartDato) {
         task.FaktiskStartDato = new Date();
-        task.GodkjentAvLeder = false; // Reset approval if task is restarted
-        task.ProblemBeskrivelse = null; // Clear problem when starting/restarting
-    } else if (newStatus === 'Venter på Godkjenning') {
-         // We don't set FaktiskSluttDato until PL approves
+    }
+    // Always reset approval and problem when setting to Pågår (e.g., after rejection or problem resolve)
+     if (newStatus === 'Pågår') {
+        task.GodkjentAvLeder = false;
+        task.ProblemBeskrivelse = null;
+     }
+
+    if (newStatus === 'Venter på Godkjenning') {
          task.GodkjentAvLeder = false; // Ensure it's false, waiting for leader
          task.ProblemBeskrivelse = null; // Clear problem when completing
     } else if (newStatus === 'Utført') {
@@ -958,10 +1051,12 @@ function triggerSuccessorUpdate(completedTaskId) {
             if (task.Status === 'Ikke startet' || task.Status === 'Venter på forutsetning') {
                 if (arePrerequisitesMet(task)) {
                     console.log(`All prerequisites met for task ${task.OppgaveID}. Updating status.`);
-                    task.Status = 'Ikke startet'; // Change status to 'Ikke startet' - ready to begin
+                    // Only update status, don't automatically start it
+                    task.Status = 'Ikke startet';
                     task.BeregnetStartDato = calculateEarliestStartDate(task); // Update calculated start
-                    // Add notification for the successor task
                      addNotification('system', `Forutsetninger for Oppgave ${task.OppgaveNr} (${task.OppgaveNavn}) er nå møtt. Arbeidet kan startes.`, null, task.OppgaveID);
+                      // Recalculate dates for this task as its start date might have changed
+                     recalculateTaskDates(task);
                 } else {
                     task.Status = 'Venter på forutsetning'; // Ensure it's waiting if not all are met
                      console.log(`Prerequisites still not met for task ${task.OppgaveID}.`);
@@ -983,6 +1078,7 @@ function arePrerequisitesMet(task) {
     }
     return task.ForutsetningerIDs.every(preReqId => {
         const preReqTask = findTaskById(preReqId);
+        // A prerequisite is met if the task exists and its status is 'Utført'
         return preReqTask && preReqTask.Status === 'Utført';
     });
 }
@@ -998,28 +1094,34 @@ function recalculateTaskDates(task) {
     let startDate = task.FaktiskStartDato || task.BeregnetStartDato;
 
     if (!startDate) {
-         // If no start date, try calculating based on prerequisites
          startDate = calculateEarliestStartDate(task);
          task.BeregnetStartDato = startDate;
     }
 
 
-    if (startDate && task.EstimertVarighetDager) {
+    if (startDate && task.EstimertVarighetDager !== null) { // Check for null duration explicitly
         task.BeregnetSluttDato = addWorkDays(startDate, task.EstimertVarighetDager);
          console.log(`Recalculated end date for ${task.OppgaveID} to ${formatDate(task.BeregnetSluttDato)}`);
+    } else {
+         task.BeregnetSluttDato = null; // Clear end date if duration or start is missing
     }
 
+
     // --- Propagate changes (Very Simplified PoC) ---
-    // Find direct successors and update their *calculated* start dates
-    // This does NOT create a full critical path, just pushes direct dependents
     const successorTasks = tasks.filter(t => t.ForutsetningerIDs?.includes(task.OppgaveID));
     successorTasks.forEach(succTask => {
          const newStartDate = calculateEarliestStartDate(succTask);
+         // Only update if the new calculated start is later than the existing one,
+         // or if the existing one wasn't set. Prevent pulling dates earlier unnecessarily.
          if (newStartDate && (!succTask.BeregnetStartDato || newStartDate > succTask.BeregnetStartDato)) {
              succTask.BeregnetStartDato = newStartDate;
-             // Recursively recalculate this successor (could lead to many updates)
-             recalculateTaskDates(succTask);
-             console.log(`Propagated date change to successor ${succTask.OppgaveID}, new start: ${formatDate(newStartDate)}`);
+             console.log(`Propagating date change to successor ${succTask.OppgaveID}, new start: ${formatDate(newStartDate)}`);
+             // Recursively recalculate this successor
+             recalculateTaskDates(succTask); // Be mindful of potential infinite loops if circular dependencies exist (should not in this model)
+         } else if (!newStartDate && succTask.BeregnetStartDato) {
+             // If we can no longer calculate a start date (e.g., prerequisite date removed), clear it?
+             // succTask.BeregnetStartDato = null;
+             // recalculateTaskDates(succTask); // Propagate the uncertainty
          }
     });
 }
@@ -1032,42 +1134,53 @@ function recalculateTaskDates(task) {
  */
  function calculateEarliestStartDate(task) {
     if (!task.ForutsetningerIDs || task.ForutsetningerIDs.length === 0) {
-        // If no prerequisites, it could start at project start? Or need manual setting.
-        // For PoC, return null or a default project start date if available.
-        return projectData?.project?.StartDato ? new Date(projectData.project.StartDato) : new Date(); // Fallback to today for simplicity
+        // If no prerequisites, use project start date if available
+        return projectData?.project?.StartDato ? new Date(projectData.project.StartDato) : new Date(); // Fallback to today
     }
 
     let latestPrerequisiteEndDate = null;
+    let prerequisitesComplete = true; // Assume complete initially
 
-    task.ForutsetningerIDs.forEach(preReqId => {
+    for (const preReqId of task.ForutsetningerIDs) {
         const preReqTask = findTaskById(preReqId);
         if (preReqTask) {
-             // Use actual end date if available, otherwise calculated end date
-            const endDate = preReqTask.FaktiskSluttDato || preReqTask.BeregnetSluttDato;
+            // Use actual end date if available and task is 'Utført', otherwise use calculated end date
+            const endDate = preReqTask.Status === 'Utført'
+                           ? (preReqTask.FaktiskSluttDato || preReqTask.BeregnetSluttDato)
+                           : preReqTask.BeregnetSluttDato;
+
+            if (preReqTask.Status !== 'Utført') {
+                prerequisitesComplete = false; // Mark as not ready if any prerequisite is not 'Utført'
+            }
+
+
             if (endDate) {
                 if (!latestPrerequisiteEndDate || endDate > latestPrerequisiteEndDate) {
                     latestPrerequisiteEndDate = endDate;
                 }
             } else {
-                 // If a prerequisite has no end date, we can't calculate accurately.
-                 latestPrerequisiteEndDate = null; // Indicate uncertainty
-                 return; // Exit the forEach early? Or handle differently.
+                // If a prerequisite has no end date, we can't calculate accurately.
+                return null; // Cannot determine start date if any prerequisite end date is unknown
             }
         } else {
-            latestPrerequisiteEndDate = null; // Prerequisite task not found
-            return;
+            console.warn(`Prerequisite task ${preReqId} not found for task ${task.OppgaveID}`);
+            return null; // Cannot determine start date if prerequisite task is missing
         }
-    });
+    }
 
 
-    if (latestPrerequisiteEndDate) {
-         // Start the day after the last prerequisite finished
+     // Only return a date if all prerequisites are actually marked 'Utført'
+    if (latestPrerequisiteEndDate && prerequisitesComplete) {
         const nextDay = new Date(latestPrerequisiteEndDate);
         nextDay.setDate(nextDay.getDate() + 1); // Simple +1 day. Could be smarter about workdays.
+        // Ensure the calculated start date is not in the past relative to today? Optional.
+        // const today = new Date(); today.setHours(0,0,0,0);
+        // return nextDay < today ? today : nextDay;
         return nextDay;
     }
 
-    return null; // Cannot determine start date
+
+    return null; // Cannot determine start date if prerequisites aren't complete or dates missing
 }
 
 
@@ -1077,7 +1190,8 @@ function recalculateTaskDates(task) {
  */
 function reportProblem(taskId) {
     const task = findTaskById(taskId);
-    if (!task || task.Status === 'Utført') return;
+     if (!task || task.Status === 'Utført' || !currentUser) return;
+
 
     const reason = prompt(`Beskriv problemet for oppgave ${task.OppgaveNr} (${task.OppgaveNavn}):`, task.ProblemBeskrivelse || '');
     if (reason !== null) { // Handle cancel button
@@ -1093,12 +1207,12 @@ function reportProblem(taskId) {
  */
 function resolveProblem(taskId) {
     const task = findTaskById(taskId);
-    if (!task || task.Status !== 'Problem Rapportert') return;
+     if (!task || task.Status !== 'Problem Rapportert' || !currentUser) return;
+
 
     // Determine previous state or a sensible state to return to
     let statusBeforeProblem = 'Pågår'; // Default to ongoing
-    // More complex logic could try to revert to 'Venter på forutsetning' if appropriate
-    if (task.FaktiskStartDato === null) { // If it wasn't started before problem
+    if (task.FaktiskStartDato === null) {
          if (arePrerequisitesMet(task)) {
              statusBeforeProblem = 'Ikke startet';
          } else {
@@ -1118,7 +1232,8 @@ function resolveProblem(taskId) {
  */
  function adminMarkTaskComplete(taskId) {
     const task = findTaskById(taskId);
-    if (!task || !currentUser.RolleIDs.includes('ROLLE-PL')) return;
+     if (!task || !currentUser || !currentUser.RolleIDs.includes('ROLLE-PL')) return;
+
 
     console.log(`Admin marking task ${taskId} as complete.`);
     const oldStatus = task.Status;
@@ -1156,6 +1271,9 @@ function resolveProblem(taskId) {
  * @returns {boolean}
  */
 function canEditDuration(task) {
+     // Add null check for currentUser
+    if (!currentUser) return false;
+
     // Allow editing if the user is responsible OR is the project leader,
     // AND the task is not yet completed.
     const isProjectLeader = currentUser.RolleIDs.includes('ROLLE-PL');
@@ -1175,6 +1293,7 @@ function canEditDuration(task) {
  * @returns {object | undefined} The task object or undefined if not found.
  */
 function findTaskById(taskId) {
+     if (!tasks) return undefined; // Guard against tasks not being loaded yet
     return tasks.find(task => task.OppgaveID === taskId);
 }
 
@@ -1184,6 +1303,7 @@ function findTaskById(taskId) {
  * @returns {object | undefined} The user object or undefined if not found.
  */
 function findUserById(userId) {
+    if (!users) return undefined;
     return users.find(user => user.BrukerID === userId);
 }
 
@@ -1193,6 +1313,7 @@ function findUserById(userId) {
  * @returns {object | undefined} The role object or undefined if not found.
  */
 function getRoleById(roleId) {
+    if (!roles) return undefined;
     return roles.find(role => role.RolleID === roleId);
 }
 
@@ -1202,6 +1323,7 @@ function getRoleById(roleId) {
  * @returns {Array<object>} An array of user objects.
  */
 function findUsersByRole(roleId) {
+    if (!users) return [];
     return users.filter(user => user.RolleIDs.includes(roleId));
 }
 
@@ -1212,7 +1334,7 @@ function findUsersByRole(roleId) {
  * @returns {Array<object>} An array of role objects.
  */
  function getRolesForUser(user) {
-     if (!user || !user.RolleIDs) return [];
+     if (!user || !user.RolleIDs || !roles) return [];
      return user.RolleIDs.map(roleId => getRoleById(roleId)).filter(role => role); // Find roles based on IDs and filter out nulls
  }
 
@@ -1228,18 +1350,22 @@ function formatDate(date, includeTime = false) {
     if (!date || !(date instanceof Date) || isNaN(date)) {
         return 'N/A';
     }
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-    const year = date.getFullYear();
-    let formatted = `${day}.${month}.${year}`;
+    try {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+        const year = date.getFullYear();
+        let formatted = `${day}.${month}.${year}`;
 
-    if (includeTime) {
-         const hours = String(date.getHours()).padStart(2, '0');
-         const minutes = String(date.getMinutes()).padStart(2, '0');
-         formatted += ` ${hours}:${minutes}`;
+        if (includeTime) {
+             const hours = String(date.getHours()).padStart(2, '0');
+             const minutes = String(date.getMinutes()).padStart(2, '0');
+             formatted += ` ${hours}:${minutes}`;
+        }
+        return formatted;
+     } catch (e) {
+        console.error("Error formatting date:", date, e);
+        return 'Feil dato';
     }
-
-    return formatted;
 }
 
 /**
@@ -1250,16 +1376,24 @@ function formatDate(date, includeTime = false) {
  */
 function addWorkDays(startDate, days) {
     if (!startDate || !(startDate instanceof Date) || isNaN(startDate) || days === null || isNaN(days) || days < 0) {
-        return startDate; // Return original if input is invalid
+         console.warn("Invalid input to addWorkDays:", startDate, days);
+         // Decide on fallback: return original date, null, or throw error?
+         return null; // Returning null might be safer than returning original date
     }
     let currentDate = new Date(startDate);
     let addedDays = 0;
-    while (addedDays < days) {
+    let safetyCounter = 0; // Prevent infinite loops with bad input/logic
+    while (addedDays < days && safetyCounter < (days * 3 + 10)) { // Generous safety limit
         currentDate.setDate(currentDate.getDate() + 1);
         const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
         if (dayOfWeek !== 0 && dayOfWeek !== 6) {
             addedDays++;
         }
+        safetyCounter++;
+    }
+     if (safetyCounter >= (days * 3 + 10)) {
+        console.error("addWorkDays safety counter triggered for:", startDate, days);
+        return null; // Return null if loop seems infinite
     }
     return currentDate;
 }
@@ -1281,10 +1415,14 @@ function calculateProjectProgress() {
  * @returns {string} Formatted ETA date string or 'Ukjent'.
  */
 function calculateProjectEta() {
+     if (!tasks || tasks.length === 0) return 'Ukjent'; // Handle no tasks case
+
     let latestEndDate = null;
     tasks.forEach(task => {
+        // Consider both calculated and actual end dates if actual is later?
+        // For ETA based on plan, BeregnetSluttDato is usually preferred.
         const endDate = task.BeregnetSluttDato;
-        if (endDate) {
+        if (endDate && endDate instanceof Date && !isNaN(endDate)) { // Check if valid Date
             if (!latestEndDate || endDate > latestEndDate) {
                 latestEndDate = endDate;
             }
@@ -1317,9 +1455,11 @@ function addNotification(type, body, senderId = null, taskId = null, recipientId
     notifications.push(notification);
     console.log("Notification added:", notification);
 
-    // Optionally, update notification displays immediately
-     renderNotificationsList(latestNotificationsListEl, 5); // Update dashboard list
-     if (currentView === 'messages') {
+    // Update notification displays immediately if the relevant lists exist
+    if (latestNotificationsListEl) {
+         renderNotificationsList(latestNotificationsListEl, 5); // Update dashboard list
+    }
+     if (messageListContainerEl && currentView === 'messages') {
          renderMessages(); // Update full message list if active
      }
 }
@@ -1346,10 +1486,17 @@ function switchView(viewId) {
         targetView.classList.add('active-view');
         currentView = viewId; // Update global state
     } else {
-        console.error(`View with ID ${viewId} not found!`);
-        // Fallback to dashboard?
-        document.getElementById('dashboard').classList.add('active-view');
-        currentView = 'dashboard';
+        console.error(`View with ID ${viewId} not found! Falling back to dashboard.`);
+        // Fallback to dashboard
+        const dashboardView = document.getElementById('dashboard');
+        if (dashboardView) {
+            dashboardView.classList.add('active-view');
+            currentView = 'dashboard';
+        } else {
+             // Absolute fallback if even dashboard is missing
+             appContent.innerHTML = `<p style="color: red; padding: 20px;">FEIL: Finner ingen visninger!</p>`;
+        }
+
     }
 }
 
