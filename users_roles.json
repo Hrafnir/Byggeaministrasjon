@@ -9,7 +9,8 @@
     {
       "RolleID": "ROLLE-PL",
       "RolleNavn": "Prosjektleder",
-      "IsAdmin": true // Indikerer at denne rollen har admin-rettigheter i PoC
+      "IsAdmin": true
+      // Indikerer at denne rollen har admin-rettigheter i PoC
     },
     {
       "RolleID": "ROLLE-ARK",
